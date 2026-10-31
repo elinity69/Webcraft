@@ -319,9 +319,12 @@ class Net {
           ent.sz = ent.tz !== undefined ? ent.tz : obj.z;
           ent.tx = obj.x; ent.ty = obj.y; ent.tz = obj.z;
           ent.snapT = performance.now();
-          // yaw along the shortest arc between snapshots
-          ent.syaw = ent.tyaw !== undefined ? ent.tyaw : obj.yaw;
-          ent.tyaw = obj.yaw;
+          // yaw along the shortest arc between snapshots. +π: the humanoid
+          // model's front is (sin(yaw), cos(yaw)) — the PLAYER's view direction
+          // is (-sin(yaw), -cos(yaw)); without the flip the avatar faces
+          // BACKWARDS (eyes end up behind the head)
+          ent.syaw = ent.tyaw !== undefined ? ent.tyaw : obj.yaw + Math.PI;
+          ent.tyaw = obj.yaw + Math.PI;
           ent.tpitch = obj.pitch;
           ent.walkSpeed = obj.sp || 0;
           ent.swingT2 = obj.sw ? 10 : (ent.swingT2 || 0);

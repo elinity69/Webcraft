@@ -10597,9 +10597,12 @@ class Net {
           ent.sz = ent.tz !== undefined ? ent.tz : obj.z;
           ent.tx = obj.x; ent.ty = obj.y; ent.tz = obj.z;
           ent.snapT = performance.now();
-          // yaw along the shortest arc between snapshots
-          ent.syaw = ent.tyaw !== undefined ? ent.tyaw : obj.yaw;
-          ent.tyaw = obj.yaw;
+          // yaw along the shortest arc between snapshots. +π: the humanoid
+          // model's front is (sin(yaw), cos(yaw)) — the PLAYER's view direction
+          // is (-sin(yaw), -cos(yaw)); without the flip the avatar faces
+          // BACKWARDS (eyes end up behind the head)
+          ent.syaw = ent.tyaw !== undefined ? ent.tyaw : obj.yaw + Math.PI;
+          ent.tyaw = obj.yaw + Math.PI;
           ent.tpitch = obj.pitch;
           ent.walkSpeed = obj.sp || 0;
           ent.swingT2 = obj.sw ? 10 : (ent.swingT2 || 0);
@@ -12255,6 +12258,27 @@ function startGame(savedPlayer, hostPayload) {
       }
       p.y = sy + 1.01;
       p.spawnPoint = [p.x, p.y, p.z];
+      // MC spawn spread — runs HERE (after chunk generation; earlier attempts
+      // in startGame saw ungenerated chunks where getBlock returns -1 and
+      // never found a spot): multiplayer players scatter around world spawn
+      // (solid ground + 2 free blocks) so two players never spawn overlapping
+      if (G.net && G.net.mode !== null) {
+        outer: for (let r = 2; r <= 12; r += 2) {
+          for (let tries = 0; tries < 10; tries++) {
+            const a = Math.random() * Math.PI * 2;
+            const sx = Math.floor(bx + Math.cos(a) * r), sz = Math.floor(bz + Math.sin(a) * r);
+            let sy2 = WORLD_H - 2;
+            while (sy2 > 1 && G.world.getBlock(sx, sy2, sz) === 0) sy2--;
+            const gnd = G.world.getBlock(sx, sy2, sz);
+            const a1 = G.world.getBlock(sx, sy2 + 1, sz), a2 = G.world.getBlock(sx, sy2 + 2, sz);
+            if (sy2 > 1 && gnd > 0 && BLOCKS[gnd].solid && a1 === 0 && a2 === 0) {
+              p.x = sx + 0.5; p.z = sz + 0.5; p.y = sy2 + 1.02;
+              p.spawnPoint = [p.x, p.y, p.z];
+              break outer;
+            }
+          }
+        }
+      }
     }
     // validate saved player: corrupted saves (mid-air / dead / buried inside blocks) get resettled
     {
