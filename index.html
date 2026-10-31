@@ -11321,7 +11321,7 @@ function WinDragonFight() {
 // localStorage 'wc_signal_url' for self-hosting/testing). Empty string
 // disables the internet path entirely.
 const SIGNAL_URL = (function () {
-  try { return localStorage.getItem('wc_signal_url') || 'wss://webcraft-relay.onrender.com'; } catch (e) { return ''; }
+  try { return localStorage.getItem('wc_signal_url') || 'wss://webcraft.onrender.com'; } catch (e) { return ''; }
 })();
 const Chat = {
   history: [],
