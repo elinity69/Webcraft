@@ -1,0 +1,765 @@
+/* ============================================================================
+   MINECRAFT 1:1 WEBGL2 EDITION - AUTHENTIC PIXEL UI & HUD STYLESHEET
+   ============================================================================ */
+* {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+:root {
+  --gui-scale: 1;
+  --mc-bg-dark: #100010;
+  --mc-panel: #c6c6c6;
+  --mc-panel-light: #ffffff;
+  --mc-panel-dark: #555555;
+  --mc-slot: #8b8b8b;
+  --mc-slot-hover: rgba(255, 255, 255, 0.45);
+  --mc-text-shadow: 2px 2px 0px #3f3f3f;
+  --mc-font: 'Courier New', 'Lucida Console', monospace;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: var(--mc-font);
+  color: #fff;
+}
+
+#game-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  z-index: 1;
+}
+
+#damage-vignette, #underwater-overlay, #portal-overlay, #pumpkin-overlay, #freeze-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+#damage-vignette {
+  background: radial-gradient(circle, transparent 45%, rgba(180, 0, 0, 0.75) 100%);
+}
+
+#underwater-overlay {
+  background: rgba(15, 65, 165, 0.48);
+}
+
+#portal-overlay {
+  background: radial-gradient(circle, rgba(140, 20, 220, 0.45), rgba(75, 0, 130, 0.85));
+}
+
+/* Crosshair */
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  mix-blend-mode: difference;
+}
+#crosshair::before, #crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.92);
+}
+#crosshair::before {
+  top: 8px; left: 0; width: 18px; height: 2px;
+}
+#crosshair::after {
+  top: 0; left: 8px; width: 2px; height: 18px;
+}
+
+/* Attack Cooldown Indicator under crosshair */
+#attack-indicator {
+  position: fixed;
+  top: calc(50% + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255,255,255,0.35);
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+}
+#attack-indicator-bar {
+  height: 100%;
+  width: 100%;
+  background: #fff;
+}
+
+/* Boss Bar (Ender Dragon / Wither) */
+#boss-bar-container {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 364px;
+  z-index: 15;
+  text-align: center;
+  pointer-events: none;
+  display: none;
+}
+#boss-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ff55ff;
+  text-shadow: 2px 2px 0 #2a002a;
+  margin-bottom: 4px;
+}
+#boss-bar-bg {
+  width: 100%;
+  height: 10px;
+  background: #330033;
+  border: 2px solid #1a001a;
+  box-shadow: inset 0 2px 0 #110011;
+}
+#boss-bar-fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, #ff55ff, #aa00aa);
+  transition: width 0.12s linear;
+}
+
+/* HUD Bottom Area */
+#hud {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) scale(var(--gui-scale));
+  transform-origin: bottom center;
+  z-index: 12;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 6px;
+}
+
+#action-bar-msg {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffff55;
+  text-shadow: 2px 2px 0 #222;
+  margin-bottom: 8px;
+  min-height: 18px;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+#status-bars {
+  width: 364px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 3px;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 18px;
+}
+
+.stat-group {
+  display: flex;
+  gap: 1px;
+  align-items: center;
+}
+
+.stat-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  position: relative;
+}
+
+/* XP Bar */
+#xp-bar-wrap {
+  width: 364px;
+  height: 10px;
+  background: #1e2b18;
+  border: 2px solid #000;
+  position: relative;
+  margin-bottom: 4px;
+}
+#xp-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: repeating-linear-gradient(
+    90deg,
+    #80ff20 0px,
+    #80ff20 14px,
+    #50c810 14px,
+    #50c810 16px
+  );
+}
+#xp-level {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #80ff20;
+  font-weight: 900;
+  font-size: 15px;
+  text-shadow: -2px 0 #000, 2px 0 #000, 0 -2px #000, 0 2px #000;
+}
+
+/* Hotbar + Offhand */
+#hotbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#offhand-hud-slot {
+  width: 40px;
+  height: 40px;
+  background: rgba(60, 60, 60, 0.82);
+  border: 3px solid #888;
+  box-shadow: inset 2px 2px 0 #333, inset -2px -2px 0 #bbb, 0 0 0 2px #000;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#hotbar {
+  display: flex;
+  background: rgba(45, 45, 45, 0.85);
+  border: 2px solid #000;
+  padding: 2px;
+  gap: 2px;
+}
+
+.hotbar-slot {
+  width: 38px;
+  height: 38px;
+  background: rgba(110, 110, 110, 0.55);
+  border: 2px solid #555;
+  box-shadow: inset 2px 2px 0 #333, inset -2px -2px 0 #aaa;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hotbar-slot.selected {
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px #000, inset 0 0 6px rgba(255,255,255,0.6);
+  transform: scale(1.06);
+  z-index: 2;
+}
+
+/* Item rendering inside slots */
+.slot-icon {
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.slot-count {
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 2px 2px 0 #111;
+  pointer-events: none;
+}
+.slot-durability {
+  position: absolute;
+  bottom: 3px;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  background: #000;
+  pointer-events: none;
+}
+.slot-durability-fill {
+  height: 100%;
+  background: #00ff00;
+}
+.slot-enchanted::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: linear-gradient(135deg, rgba(180,80,255,0.0) 20%, rgba(210,120,255,0.45) 50%, rgba(180,80,255,0.0) 80%);
+  background-size: 200% 200%;
+  animation: glint 2s infinite linear;
+  pointer-events: none;
+}
+@keyframes glint {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+/* Status Effect HUD (Top Right) */
+#active-effects-hud {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+.effect-badge {
+  background: rgba(35, 35, 35, 0.85);
+  border: 2px solid #888;
+  box-shadow: 0 0 0 2px #000;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Advancement Toast (Top Right Pop-in) */
+#advancement-toast {
+  position: fixed;
+  top: -90px;
+  right: 16px;
+  width: 280px;
+  background: #212121;
+  border: 3px solid #a0a0a0;
+  box-shadow: inset 2px 2px 0 #555, 0 0 0 2px #000;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 50;
+  transition: top 0.4s cubic-bezier(0.2, 0.9, 0.3, 1);
+  pointer-events: none;
+}
+#advancement-toast.visible {
+  top: 16px;
+}
+.adv-toast-title {
+  color: #ffff55;
+  font-weight: bold;
+  font-size: 13px;
+  text-shadow: 1px 1px 0 #000;
+}
+.adv-toast-desc {
+  color: #ffffff;
+  font-size: 12px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* F3 Debug Overlay */
+#f3-debug {
+  position: fixed;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  z-index: 20;
+  pointer-events: none;
+  display: none;
+  justify-content: space-between;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.f3-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.f3-col.right {
+  align-items: flex-end;
+}
+.f3-line {
+  background: rgba(50, 50, 50, 0.65);
+  color: #e8e8e8;
+  padding: 1px 4px;
+  margin-bottom: 1px;
+  text-shadow: 1px 1px 0 #111;
+  white-space: pre;
+}
+
+/* Chat & Command Bar */
+#chat-container {
+  position: fixed;
+  bottom: 85px;
+  left: 10px;
+  width: 460px;
+  z-index: 25;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#chat-history {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.chat-msg {
+  background: rgba(0, 0, 0, 0.52);
+  padding: 3px 6px;
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #111;
+  word-break: break-word;
+}
+#chat-input-wrap {
+  display: none;
+  pointer-events: auto;
+  flex-direction: column;
+}
+#chat-autocomplete {
+  background: rgba(15, 15, 15, 0.9);
+  border: 1px solid #555;
+  color: #ffff55;
+  font-size: 12px;
+  padding: 4px 6px;
+  display: none;
+}
+#chat-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.78);
+  border: 2px solid #888;
+  color: #fff;
+  font-family: var(--mc-font);
+  font-size: 14px;
+  padding: 6px 8px;
+  outline: none;
+}
+
+/* Classic Minecraft Button */
+.mc-btn {
+  background: #7d7d7d;
+  border-top: 3px solid #b5b5b5;
+  border-left: 3px solid #b5b5b5;
+  border-right: 3px solid #424242;
+  border-bottom: 3px solid #424242;
+  outline: 2px solid #000;
+  color: #e8e8e8;
+  font-family: var(--mc-font);
+  font-size: 15px;
+  font-weight: bold;
+  text-shadow: 2px 2px 0 #2a2a2a;
+  padding: 8px 16px;
+  cursor: pointer;
+  text-align: center;
+  transition: filter 0.05s;
+}
+.mc-btn:hover:not(:disabled) {
+  background: #7c89be;
+  border-top-color: #b5c2f7;
+  border-left-color: #b5c2f7;
+  color: #ffffa0;
+}
+.mc-btn:active:not(:disabled) {
+  border-top-color: #424242;
+  border-left-color: #424242;
+  border-right-color: #b5b5b5;
+  border-bottom-color: #b5b5b5;
+}
+.mc-btn:disabled {
+  background: #3c3c3c;
+  color: #777;
+  cursor: not-allowed;
+}
+
+/* Fullscreen Overlays (Title, Pause, Death, Containers) */
+body.in-menu #hud,
+body.in-menu #crosshair,
+body.in-menu #attack-indicator,
+body.in-menu #boss-bar-container,
+body.in-menu #hotbar-item-name,
+body.in-menu #active-effects-hud,
+body.in-menu #chat-container,
+body.in-menu #f3-debug,
+body.in-menu #damage-vignette,
+body.in-menu #underwater-overlay,
+body.in-menu #portal-overlay,
+body.in-menu #fire-overlay {
+  display: none !important;
+}
+
+.screen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+}
+.screen-overlay.active {
+  display: flex;
+}
+
+/* Title Screen */
+#title-screen {
+  background: radial-gradient(circle, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.65) 100%);
+  flex-direction: column;
+  justify-content: flex-start; /* the menu buttons center themselves via auto margins — space-between pinned them to the bottom edge */
+  padding: 40px 24px 16px;
+}
+#title-screen .menu-col {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+#mc-logo-box {
+  position: relative;
+  text-align: center;
+  margin-top: 10px;
+}
+#mc-logo-title {
+  font-size: 62px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #d8d8d8;
+  text-shadow:
+    0 4px 0 #555,
+    0 8px 0 #222,
+    -3px -3px 0 #000,
+    3px -3px 0 #000,
+    -3px 6px 0 #000,
+    3px 6px 0 #000,
+    0 12px 18px rgba(0,0,0,0.85);
+}
+#mc-logo-subtitle {
+  font-size: 16px;
+  font-weight: bold;
+  color: #a8a8a8;
+  letter-spacing: 3px;
+  text-shadow: 2px 2px 0 #111;
+  margin-top: 2px;
+}
+#splash-text {
+  position: absolute;
+  right: -45px;
+  bottom: -6px;
+  color: #ffff00;
+  font-size: 18px;
+  font-weight: bold;
+  text-shadow: 2px 2px 0 #3f3f00;
+  transform: rotate(-18deg);
+  animation: splashPulse 0.55s infinite alternate ease-in-out;
+  white-space: nowrap;
+}
+@keyframes splashPulse {
+  from { transform: rotate(-18deg) scale(0.94); }
+  to   { transform: rotate(-18deg) scale(1.08); }
+}
+
+.menu-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 380px;
+  max-width: 92vw;
+}
+.menu-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.menu-row .mc-btn {
+  flex: 1;
+}
+
+/* Minecraft Dialog / Window Panel (Inventory, Crafting, Furnace, Chest, Enchant, Options) */
+.mc-window {
+  background: var(--mc-panel);
+  border-top: 4px solid var(--mc-panel-light);
+  border-left: 4px solid var(--mc-panel-light);
+  border-right: 4px solid var(--mc-panel-dark);
+  border-bottom: 4px solid var(--mc-panel-dark);
+  box-shadow: 0 0 0 3px #000, 0 16px 40px rgba(0,0,0,0.8);
+  padding: 14px;
+  color: #373737;
+  max-width: 95vw;
+  max-height: 92vh;
+  overflow-y: auto;
+  position: relative;
+}
+.mc-window-dark {
+  background: #262626;
+  color: #eee;
+  border-top-color: #555;
+  border-left-color: #555;
+  border-right-color: #111;
+  border-bottom-color: #111;
+}
+
+.mc-window-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Inventory Slots Grid */
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 38px);
+  gap: 2px;
+  background: #8b8b8b;
+  padding: 2px;
+  border: 2px solid #555;
+}
+.inv-slot {
+  width: 38px;
+  height: 38px;
+  background: #8b8b8b;
+  border-top: 2px solid #373737;
+  border-left: 2px solid #373737;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.inv-slot:hover {
+  background: #b0b0b0;
+}
+.inv-slot.empty-hint::before {
+  content: attr(data-hint);
+  font-size: 10px;
+  color: #5d5d5d;
+  opacity: 0.7;
+}
+
+/* Cursor Held Item & Tooltip */
+#cursor-item {
+  position: fixed;
+  width: 36px;
+  height: 36px;
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+}
+#item-tooltip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 101;
+  background: rgba(16, 0, 16, 0.94);
+  border: 2px solid #5000ff;
+  box-shadow: 0 0 0 2px #100010;
+  padding: 6px 10px;
+  color: #fff;
+  font-size: 13px;
+  display: none;
+  max-width: 280px;
+}
+.tt-name {
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #222;
+}
+.tt-lore {
+  color: #a855f7;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.tt-stat {
+  color: #55ff55;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Recipe Book Sidebar */
+#recipe-book-panel {
+  width: 240px;
+  background: #333;
+  border: 3px solid #111;
+  padding: 8px;
+  color: #fff;
+  max-height: 390px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.recipe-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #484848;
+  border: 2px solid #666;
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.recipe-entry:hover {
+  background: #6070a0;
+  border-color: #fff;
+}
+.recipe-entry.craftable {
+  border-color: #55ff55;
+}
+
+/* Inputs & Sliders */
+.mc-input {
+  background: #000;
+  border: 2px solid #a0a0a0;
+  color: #fff;
+  font-family: var(--mc-font);
+  font-size: 14px;
+  padding: 6px 8px;
+  width: 100%;
+}
+.mc-slider-wrap {
+  background: #444;
+  border: 2px solid #000;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #fff;
+  font-size: 13px;
+}
+.mc-slider-wrap input[type=range] {
+  width: 100%;
+  accent-color: #7c89be;
+}
+
+/* Death Screen */
+#death-screen {
+  background: rgba(140, 0, 0, 0.68);
+  flex-direction: column;
+  gap: 18px;
+}
+#death-title {
+  font-size: 52px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 3px 3px 0 #300;
+}

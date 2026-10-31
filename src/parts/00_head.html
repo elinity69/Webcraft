@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="WebCraft - an original Minecraft-inspired voxel sandbox in a single HTML file">
+<title>WebCraft — Voxel Sandbox</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%238b5a2b'/%3E%3Crect width='16' height='7' fill='%237cbd4c'/%3E%3Crect x='3' y='2' width='2' height='2' fill='%235a9a35'/%3E%3Crect x='9' y='3' width='2' height='2' fill='%2368ab3e'/%3E%3Crect x='6' y='5' width='2' height='2' fill='%235a9a35'/%3E%3C/svg%3E">
+<style>
+/*__CSS__*/
+</style>
+<style>
+/* ============ Additional UI styles ============ */
+#loading-screen { background:#1a0f0f; flex-direction:column; gap:18px; z-index:60; }
+#loading-screen .load-title { font-size:34px; font-weight:900; letter-spacing:3px; text-shadow:3px 3px 0 #000; }
+#loading-bar-outer { width:420px; max-width:80vw; height:22px; border:3px solid #000; background:#222; box-shadow:inset 2px 2px 0 #111; }
+#loading-bar-fill { height:100%; width:0%; background:linear-gradient(to bottom,#7bd44c,#4d9b2a); transition:width .12s; }
+#loading-status { font-size:14px; color:#cfcfcf; text-shadow:1px 1px 0 #000; }
+#loading-tip { font-size:13px; color:#8f8f8f; font-style:italic; }
+
+#pause-screen { flex-direction:column; gap:12px; background:rgba(0,0,0,.55); }
+/* menu buttons sit ABOVE the vertical center — never down near the bottom edge */
+#pause-screen, #death-screen, #win-screen { padding-bottom: 12vh; }
+#game-over-info { position:absolute; top:8px; right:12px; text-align:right; font-size:13px; color:#ddd; text-shadow:1px 1px 0 #000; }
+
+.stat-icon img, .stat-icon canvas { width:16px; height:16px; display:block; }
+#hotbar-item-name { position:fixed; bottom:110px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:bold; color:#fff; text-shadow:2px 2px 0 #000; opacity:0; transition:opacity .4s; pointer-events:none; z-index:13; }
+
+/* Furnace widgets */
+.furnace-flame { width:28px; height:28px; position:relative; }
+.furnace-flame canvas { width:100%; height:100%; }
+.furnace-arrow { width:44px; height:20px; position:relative; }
+.furnace-arrow canvas { width:100%; height:100%; }
+.craft-arrow { width:36px; height:18px; align-self:center; }
+.craft-arrow canvas { width:100%; height:100%; }
+.inv-grid.g3 { grid-template-columns:repeat(3,38px); }
+.inv-grid.g2 { grid-template-columns:repeat(2,38px); }
+.inv-grid.g1 { grid-template-columns:repeat(1,38px); }
+.slot-label { font-size:12px; color:#373737; margin:4px 0 2px; font-weight:bold; }
+
+/* Multiplayer panel */
+.net-log { font-size:12px; color:#9f9; background:#000; border:2px solid #444; padding:6px; max-height:130px; overflow-y:auto; width:100%; }
+.net-log .err { color:#f88; }
+.sdp-area { width:100%; height:74px; background:#000; color:#9f9; border:2px solid #888; font-family:var(--mc-font); font-size:11px; padding:4px; }
+.player-list-entry { font-size:13px; padding:3px 8px; background:rgba(0,0,0,.4); margin-bottom:3px; }
+
+#enchant-opt { display:flex; flex-direction:column; gap:6px; width:100%; }
+.enchant-btn { display:flex; justify-content:space-between; background:#1c1c2e; border:2px solid #555; color:#ccc; padding:6px 10px; cursor:pointer; font-size:13px; }
+.enchant-btn:hover { border-color:#aaf; color:#fff; }
+.enchant-btn .cost { color:#80ff20; font-weight:bold; }
+
+#win-screen { background:rgba(0,0,0,.85); flex-direction:column; gap:20px; z-index:70; }
+#win-title { font-size:46px; color:#ffff55; font-weight:900; text-shadow:3px 3px 0 #440; }
+
+/* hearts etc rows animation */
+@keyframes heartShake { 0%,100%{transform:translateY(0)} 25%{transform:translateY(-1.5px)} 75%{transform:translateY(1px)} }
+.low-health-shake { animation:heartShake .3s infinite; }
+::-webkit-scrollbar { width:10px; height:10px; }
+::-webkit-scrollbar-track { background:#1a1a1a; }
+::-webkit-scrollbar-thumb { background:#6f6f6f; border:2px solid #222; }
+
+#title-screen .version-tag { position:absolute; bottom:6px; left:8px; font-size:12px; color:#bbb; text-shadow:1px 1px 0 #000; }
+#title-screen .rights-tag { position:absolute; bottom:6px; right:8px; font-size:12px; color:#bbb; text-shadow:1px 1px 0 #000; }
+.subtitle-options-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; font-size:13px; color:#ccc; }
+#world-list { display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; width:100%; }
+.world-entry { display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.45); border:2px solid #555; padding:6px 8px; }
+.world-entry .we-name { flex:1; font-size:14px; }
+.world-entry .we-meta { font-size:11px; color:#999; }
+canvas.mini-preview { image-rendering:pixelated; }
+
+#chat-container.hidden-chat #chat-history { display:none; }
+kbd.kbd-hint { background:#333; border:1px solid #666; border-radius:2px; padding:0 4px; font-size:11px; }
+#container-screen { z-index:35; }
+#recipe-book-panel .rb-grid { display:grid; grid-template-columns:repeat(6,36px); gap:2px; }
+#recipe-book-panel .rb-grid .inv-slot { width:36px; height:36px; }
+.recipe-list-toggle { font-size:12px; color:#ffff55; cursor:pointer; text-decoration:underline; }
+</style>
+</head>
+<body class="in-menu">
+<canvas id="game-canvas"></canvas>
+
+<!-- Screen tint overlays -->
+<div id="damage-vignette"></div>
+<div id="underwater-overlay"></div>
+<div id="portal-overlay"></div>
+<div id="fire-overlay" style="position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .2s;background:radial-gradient(circle at 50% 100%, rgba(255,100,0,.55), rgba(200,40,0,.28) 60%, transparent 80%);"></div>
+<div id="night-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;background:radial-gradient(circle, transparent 55%, rgba(0,0,10,.5) 100%);"></div>
+
+<div id="crosshair"></div>
+<div id="attack-indicator"><div id="attack-indicator-bar"></div></div>
+
+<div id="boss-bar-container">
+  <div id="boss-name">Boss</div>
+  <div id="boss-bar-bg"><div id="boss-bar-fill"></div></div>
+</div>
+
+<div id="f3-debug">
+  <div class="f3-col left" id="f3-left"></div>
+  <div class="f3-col right" id="f3-right"></div>
+</div>
+
+<div id="hud">
+  <div id="action-bar-msg"></div>
+  <div id="status-bars">
+    <div class="status-row" id="armor-row"><div class="stat-group" id="armor-icons"></div></div>
+    <div class="status-row">
+      <div class="stat-group" id="health-icons"></div>
+      <div class="stat-group" id="food-icons"></div>
+    </div>
+    <div class="status-row"><div class="stat-group" id="air-icons" style="margin-left:auto;"></div></div>
+  </div>
+  <div id="xp-bar-wrap"><canvas id="player-compass" width="364" height="36" style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);display:none;z-index:2;"></canvas><div id="xp-bar-fill"></div><div id="xp-level"></div></div>
+  <div id="hotbar-row">
+    <div id="offhand-hud-slot"></div>
+    <div id="hotbar"></div>
+  </div>
+</div>
+<div id="hotbar-item-name"></div>
+
+<div id="active-effects-hud"></div>
+<div id="advancement-toast">
+  <div>
+    <div class="adv-toast-title">Advancement Made!</div>
+    <div class="adv-toast-desc" id="adv-toast-desc"></div>
+  </div>
+</div>
+
+<div id="chat-container" class="hidden-chat">
+  <div id="chat-history"></div>
+  <div id="chat-input-wrap">
+    <div id="chat-autocomplete"></div>
+    <input id="chat-input" type="text" maxlength="256" autocomplete="off" spellcheck="false">
+  </div>
+</div>
+
+<!-- ============ SCREENS ============ -->
+<div id="mp-code-badge" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:40;background:rgba(10,10,20,0.85);border:2px solid #55ff55;padding:4px 14px;font-family:monospace;color:#fff;font-size:14px;text-shadow:1px 1px 0 #000;"><span style="color:#55ff55;">MP</span> <span id="mp-code-value" style="letter-spacing:4px;font-weight:bold;"></span></div>
+<div class="screen-overlay" id="title-screen">
+  <div id="mc-logo-box">
+    <div id="mc-logo-title">WEBCRAFT</div>
+    <div id="mc-logo-subtitle">A Minecraft-inspired Voxel Sandbox &mdash; Single HTML File Edition</div>
+    <div id="splash-text">100% Procedural!</div>
+  </div>
+  <div class="menu-col">
+    <button class="mc-btn" id="btn-singleplayer">Singleplayer</button>
+    <div class="menu-row">
+      <button class="mc-btn" id="btn-multiplayer">Multiplayer</button>
+      <button class="mc-btn" id="btn-options-title">Options...</button>
+    </div>
+  </div>
+  <div class="version-tag">WebCraft 1.1 · build 26-10-27 · textures: procedural or your pack</div>
+  <div class="rights-tag">Original fan-made engine &amp; procedural assets. Not affiliated with Mojang.</div>
+</div>
+
+<div class="screen-overlay" id="world-select-screen">
+  <div class="mc-window mc-window-dark" style="width:520px;max-width:95vw;">
+    <div class="mc-window-title"><span>Select World</span><button class="mc-btn" id="btn-world-back" style="padding:2px 10px;">X</button></div>
+    <div id="world-list"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <input class="mc-input" id="new-world-name" placeholder="New world name" value="New World">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input class="mc-input" id="new-world-seed" placeholder="Seed (blank = random)" style="flex:1;">
+      <select class="mc-input" id="new-world-mode" style="width:130px;">
+        <option value="survival">Survival</option>
+        <option value="creative">Kreativ</option>
+        <option value="hardcore">Hardcore</option>
+      </select>
+      <select class="mc-input" id="new-world-difficulty" style="width:120px;" title="Schwierigkeit">
+        <option value="easy">Einfach</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Schwer</option>
+        <option value="peaceful">Friedlich (keine Monster)</option>
+      </select>
+    </div>
+    <div class="menu-row" style="margin-top:10px;">
+      <button class="mc-btn" id="btn-create-world">Create New World</button>
+      <button class="mc-btn" id="btn-del-world">Delete Selected</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen-overlay" id="multiplayer-screen">
+  <div class="mc-window mc-window-dark" style="width:560px;max-width:95vw;">
+    <div class="mc-window-title"><span>Multiplayer</span><button class="mc-btn" id="btn-mp-back" style="padding:2px 10px;">X</button></div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <select class="mc-input" id="mp-host-mode" style="flex:1;" title="Spielmodus für das gehostete Spiel">
+        <option value="survival">Modus: Survival</option>
+        <option value="creative">Modus: Kreativ</option>
+      </select>
+      <select class="mc-input" id="mp-host-difficulty" style="flex:1;" title="Schwierigkeit für das gehostete Spiel">
+        <option value="easy">Einfach</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Schwer</option>
+        <option value="peaceful">Friedlich</option>
+      </select>
+    </div>
+    <button class="mc-btn" id="btn-host-lan" style="width:100%;margin-top:6px;">Spiel hosten (Code wird angezeigt)</button>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:stretch;">
+      <input class="mc-input" id="mp-code-input" placeholder="CODE" maxlength="6" style="flex:1;text-transform:uppercase;font-family:monospace;font-size:20px;letter-spacing:6px;text-align:center;">
+      <button class="mc-btn" id="btn-join-lan" style="flex:none;">Mit Code beitreten</button>
+    </div>
+    <button class="mc-btn" id="btn-join-auto" style="width:100%;margin-top:10px;">Im selben Browser beitreten (ohne Code)</button>
+    <div class="net-log" id="net-log"></div>
+    <details style="margin-top:8px;color:#aaa;font-size:12px;">
+      <summary style="cursor:pointer;">Erweitert: Geräteübergreifend (P2P WebRTC, kein Server)</summary>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
+        <div class="menu-row">
+          <button class="mc-btn" id="btn-rtc-host">P2P: Invite-Code erstellen</button>
+          <button class="mc-btn" id="btn-rtc-join">P2P: Code einfügen &amp; antworten</button>
+        </div>
+        <textarea class="sdp-area" id="sdp-area" placeholder="Invite/Answer-Code — kopieren &amp; senden, oder einfügen und Übernehmen"></textarea>
+        <div class="menu-row">
+          <button class="mc-btn" id="btn-sdp-apply">Übernehmen</button>
+          <button class="mc-btn" id="btn-sdp-copy">Kopieren</button>
+        </div>
+        <div class="menu-row">
+          <input class="mc-input" id="ws-relay-url" placeholder="Optional WebSocket relay ws://host:port/room" style="flex:1;">
+          <button class="mc-btn" id="btn-ws-connect">Relay</button>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<div class="screen-overlay" id="options-screen">
+  <div class="mc-window mc-window-dark" style="width:520px;max-width:95vw;max-height:calc(100vh - 48px);display:flex;flex-direction:column;">
+    <div class="mc-window-title" style="flex:none;"><span>Options</span></div>
+    <div id="options-body" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;min-height:0;padding-right:4px;"></div>
+    <button class="mc-btn" id="btn-options-done" style="margin-top:12px;flex:none;width:100%;">Done</button>
+  </div>
+</div>
+
+<div class="screen-overlay" id="pause-screen">
+  <div id="game-over-info"></div>
+  <div id="pause-title" style="font-size:30px;font-weight:900;text-shadow:3px 3px 0 #000;">Spiel pausiert</div>
+  <div class="menu-col">
+    <button class="mc-btn" id="btn-resume">Zurück zum Spiel</button>
+    <button class="mc-btn" id="btn-pause-options">Optionen...</button>
+    <button class="mc-btn" id="btn-save-quit">Speichern &amp; ins Hauptmenü</button>
+  </div>
+</div>
+
+<div class="screen-overlay" id="death-screen">
+  <div id="death-title">You Died!</div>
+  <div id="death-score" style="font-size:16px;color:#fff;text-shadow:2px 2px 0 #300;"></div>
+  <div class="menu-col">
+    <button class="mc-btn" id="btn-respawn">Respawn</button>
+    <button class="mc-btn" id="btn-death-title">Title Screen</button>
+  </div>
+</div>
+
+<div class="screen-overlay" id="win-screen">
+  <div id="win-title">You defeated the Dragon!</div>
+  <div style="font-size:16px;color:#ddd;">The end gate opens. Free the End... or return home through the portal.</div>
+  <div class="menu-col">
+    <button class="mc-btn" id="btn-win-continue">Continue Playing</button>
+  </div>
+</div>
+
+<div class="screen-overlay" id="loading-screen">
+  <div class="load-title">Building terrain...</div>
+  <div id="loading-bar-outer"><div id="loading-bar-fill"></div></div>
+  <div id="loading-status">Preparing spawn area</div>
+  <div id="loading-tip"></div>
+</div>
+
+<div class="screen-overlay" id="container-screen"></div>
+
+<div id="cursor-item"></div>
+<div id="item-tooltip"></div>
+
+<script>

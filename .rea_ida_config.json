@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ida-pro-mcp": {
+      "type": "http",
+      "mode": "attached",
+      "url": "http://127.0.0.1:8426/mcp"
+    }
+  }
+}

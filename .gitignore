@@ -1,0 +1,8 @@
+# Mojang decompiled source + extracted assets — NOT for distribution
+rea_decompiled/
+# build/runtime artifacts
+node_modules/
+.zcode-site/
+trades_extract.json
+relay.log
+*.log
