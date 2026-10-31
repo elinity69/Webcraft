@@ -11,8 +11,26 @@ const rooms = new Map(); // room -> Map<ws, {id}>
 
 const server = http.createServer((req, res) => {
   if (req.url === '/health') { res.writeHead(200); res.end('ok'); return; }
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('WebCraft relay — WebSocket endpoint at ws://<host>/');
+  // Friendly info page: people who open the relay URL directly land here —
+  // point them to the actual game instead of showing bare status text.
+  if (req.url === '/' || req.url.startsWith('/?') || req.url === '') {
+    const GAME = 'https://webcraft-qb1q.zai-ai.site';
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><title>WebCraft Relay</title>
+<meta http-equiv="refresh" content="6;url=${GAME}">
+<style>body{background:#0d0d14;color:#eee;font-family:monospace;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center}
+.box{max-width:560px;padding:32px;border:3px solid #55ff55;background:#1a1a2e}
+h1{color:#55ff55;letter-spacing:3px}a{color:#7fff3f}p{line-height:1.6;color:#ccc}</style></head>
+<body><div class="box"><h1>WebCraft Relay</h1>
+<p>Diese Adresse ist der <b>Verbindungsserver</b> (Relay) für den Multiplayer-Code-Join —<br>Spieler öffnen hier nichts im Browser.</p>
+<p><b>Das Spiel spielst du hier:</b><br><a href="${GAME}">${GAME}</a></p>
+<p style="color:#8f8">Du wirst in wenigen Sekunden automatisch dorthin weitergeleitet …</p>
+</div></body></html>`);
+    return;
+  }
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('not found');
 });
 const wss = new WebSocketServer({ server });
 
