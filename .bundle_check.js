@@ -10284,7 +10284,7 @@ function WinDragonFight() {
 // localStorage 'wc_signal_url' for self-hosting/testing). Empty string
 // disables the internet path entirely.
 const SIGNAL_URL = (function () {
-  try { return localStorage.getItem('wc_signal_url') || 'wss://webcraft.onrender.com'; } catch (e) { return ''; }
+  try { return localStorage.getItem('wc_signal_url') || 'wss://webcraft-qkwp.onrender.com'; } catch (e) { return ''; }
 })();
 const Chat = {
   history: [],
@@ -10858,13 +10858,20 @@ class Net {
       this.ws.onopen = () => {
         this.log('Relay verbunden (Internet-Modus, Raum: ' + (this.roomCode || 'default') + ').');
         this.ws.send(JSON.stringify({ t: 'join-room', room: 'webcraft-' + (this.roomCode || 'default'), id: this.myId }));
+        // hardening: OUR relay confirms with room-joined — anything else is a
+        // foreign service on that URL (wrong Render service name)
+        setTimeout(() => {
+          if (this.ws && this.ws.readyState === 1 && !this._roomJoined) {
+            this.log('§cRelay-Antwort unerwartet — das ist NICHT unser Relay-Server. Render-Service-Name/URL prüfen!', true);
+          }
+        }, 3000);
         // coded join over the relay: request membership immediately (no wait)
         if (!this.isHostOrSingle) this.sendAll({ t: 'join', id: this.myId, name: this.myName });
       };
       this.ws.onmessage = (ev) => {
         try {
           const obj = JSON.parse(ev.data);
-          if (obj.t === 'room-joined') { this.log('Room joined. Waiting for peers...'); return; }
+          if (obj.t === 'room-joined') { this._roomJoined = true; this.log('Relay-Raum betreten — wartet auf Spieler...'); return; }
           this.onMessage(obj, (o) => { try { this.ws.send(JSON.stringify({ ...o, _to: obj.id })); } catch (e) { } });
         } catch (e) { }
       };
