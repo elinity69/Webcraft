@@ -943,7 +943,7 @@ const UI = {
     this.selectedTradeIdx = null;
     this.merchantResult = null;
     this.openScreen(win => {
-      const title = mkEl('div', 'mc-window-title', win, (PROFESSION_NAMES_DE[v.profession] || 'Dorfbewohner') + ' · ' + LEVEL_NAMES_DE[v.villagerLevel]);
+      const title = mkEl('div', 'mc-window-title', win, profName(v.profession) + ' · ' + levelName(v.villagerLevel));
       const sp = mkEl('span', '', title);
       const closeBtn = mkEl('button', 'mc-btn', title, 'X');
       closeBtn.style.padding = '2px 10px';
@@ -991,7 +991,7 @@ const UI = {
       if (o.buyB) icon(o.buyB);
       mkEl('div', '', cell, '→').style.cssText = 'color:#aaa;font-size:14px;';
       icon(o.sell);
-      const left = mkEl('div', '', cell, (o.maxUses - o.uses) + '×');
+      const left = mkEl('div', '', cell, T('trade.uses_left', { n: (o.maxUses - o.uses) }));
       left.style.cssText = 'margin-left:auto;color:#8f8;font-size:11px;';
       cell.onclick = () => {
         this.selectedTradeIdx = i;
@@ -1034,7 +1034,7 @@ const UI = {
         this.merchantVillager.villagerLevel++;
         const nt = (VILLAGER_TRADES[this.merchantVillager.profession][this.merchantVillager.villagerLevel] || []).map(mkOffer);
         this.merchantVillager.offers.push(...nt);
-        Chat.add('§d' + (PROFESSION_NAMES_DE[this.merchantVillager.profession] || 'Dorfbewohner') + ' ist jetzt ' + LEVEL_NAMES_DE[this.merchantVillager.villagerLevel]);
+        Chat.add(T('chat.level_up', { prof: profName(this.merchantVillager.profession), level: levelName(this.merchantVillager.villagerLevel) }));
       }
       SFX.playDig('wood');
     };

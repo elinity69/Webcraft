@@ -221,37 +221,140 @@ function mobDmg(base) {
   return Math.max(1, base * mul);
 }
 
-// ---------- Death messages (official German localisation, Minecraft Wiki "Death messages") ----------
+// ---------- Death messages (official MC localisations, Minecraft Wiki "Death messages") ----------
 const DEATH_MSGS = {
-  fall: 'fiel von einem hohen Ort',
-  fire: 'ging in Flammen auf',
-  lava: 'versuchte, in Lava zu schwimmen',
-  drown: 'ertrank',
-  starve: 'verhungerte',
-  cactus: 'wurde von einem Kaktus erstochen',
-  void: 'fiel aus der Welt',
-  explosion: 'wurde in die Luft gesprengt',
-  dragon: 'wurde vom Enderdrachen erfasst',
+  fall: { en: 'fell from a high place', de: 'fiel von einem hohen Ort' },
+  fire: { en: 'went up in flames', de: 'ging in Flammen auf' },
+  lava: { en: 'tried to swim in lava', de: 'versuchte, in Lava zu schwimmen' },
+  drown: { en: 'drowned', de: 'ertrank' },
+  starve: { en: 'starved to death', de: 'verhungerte' },
+  cactus: { en: 'was pricked to death by a cactus', de: 'wurde von einem Kaktus erstochen' },
+  void: { en: 'fell out of the world', de: 'fiel aus der Welt' },
+  explosion: { en: 'blew up', de: 'wurde in die Luft gesprengt' },
+  dragon: { en: 'was struck down by the Ender Dragon', de: 'wurde vom Enderdrachen erfasst' },
 };
-const MOB_NAMES_DE = {
-  zombie: 'Zombie', skeleton: 'Skelett', creeper: 'Creeper', spider: 'Spinne',
-  enderman: 'Enderman', ghast: 'Ghast', slime: 'Slime', witch: 'Hexe',
-  wither: 'Wither', dragon: 'Enderdrache', player_remote: 'Spieler',
+const MOB_NAMES = {
+  zombie: { en: 'Zombie', de: 'Zombie' }, skeleton: { en: 'Skeleton', de: 'Skelett' },
+  creeper: { en: 'Creeper', de: 'Creeper' }, spider: { en: 'Spider', de: 'Spinne' },
+  enderman: { en: 'Enderman', de: 'Enderman' }, ghast: { en: 'Ghast', de: 'Ghast' },
+  slime: { en: 'Slime', de: 'Slime' }, witch: { en: 'Witch', de: 'Hexe' },
+  wither: { en: 'Wither', de: 'Wither' }, dragon: { en: 'Ender Dragon', de: 'Enderdrache' },
+  player_remote: { en: 'a player', de: 'einem Spieler' },
 };
 function deathMessage(cause, name) {
   const n = '§e' + name + '§7';
-  if (!cause) return n + ' ist gestorben';
+  const lang = G.lang || 'en';
+  if (!cause) return n + ' ' + T('death.died');
   if (cause.startsWith('mob:')) {
-    const mob = MOB_NAMES_DE[cause.slice(4)] || 'ein Monster';
-    return n + ' wurde von ' + mob + ' getötet';
+    const mob = (MOB_NAMES[cause.slice(4)] || {})[lang] || 'a monster';
+    return n + ' ' + T('death.slain_by') + ' ' + mob;
   }
   if (cause.startsWith('arrow:')) {
-    const mob = MOB_NAMES_DE[cause.slice(6)] || 'einem Skelett';
-    return n + ' wurde von ' + mob + ' erschossen';
+    const mob = (MOB_NAMES[cause.slice(6)] || {})[lang] || 'a skeleton';
+    return n + ' ' + T('death.shot_by') + ' ' + mob;
   }
-  if (cause.startsWith('explosion:')) return n + ' explodierte';
+  if (cause.startsWith('explosion:')) return n + ' ' + T('death.exploded');
   const base = DEATH_MSGS[cause];
-  return base ? n + ' ' + base : n + ' ist gestorben';
+  return base ? n + ' ' + base[lang] : n + ' ' + T('death.died');
+}
+
+// ---------- i18n (English default, German toggle — official MC localisations) ----------
+const I18N = {
+  en: {
+    'ui.singleplayer': 'Singleplayer', 'ui.multiplayer': 'Multiplayer', 'ui.options': 'Options...',
+    'ui.lang_btn': 'Language: English', 'ui.host_game': 'Host Game (code will be shown)',
+    'ui.mode_survival': 'Mode: Survival', 'ui.mode_creative': 'Mode: Creative',
+    'ui.diff_easy': 'Easy', 'ui.diff_normal': 'Normal', 'ui.diff_hard': 'Hard', 'ui.diff_peaceful': 'Peaceful (no monsters)',
+    'ui.join_code': 'Join with Code', 'ui.join_auto': 'Join in this browser (no code)',
+    'ui.advanced': 'Advanced: Cross-device (P2P WebRTC, no server)',
+    'ui.rtc_host': 'P2P: Create invite code', 'ui.rtc_join': 'P2P: Paste code & answer',
+    'ui.apply': 'Apply', 'ui.copy': 'Copy',
+    'ui.ws_ph': 'Optional WebSocket relay ws://host:port/room',
+    'ui.code_ph': 'CODE',
+    'ui.nw_survival': 'Survival', 'ui.nw_creative': 'Creative', 'ui.nw_hardcore': 'Hardcore',
+    'death.you_died': 'You Died!',
+    'ui.pause_back': 'Back to Game', 'ui.pause_options': 'Options...', 'ui.pause_quit': 'Save & Quit to Title',
+    'pause.game_menu': 'Game Menu', 'pause.paused': 'Game Paused',
+    'pause.mp_running': 'The world keeps running in multiplayer',
+    'pause.seed': 'Seed', 'pause.mode': 'Mode', 'pause.playtime': 'Playtime',
+    'death.respawn': 'Respawn', 'death.title_screen': 'Title Screen',
+    'trade.uses_left': '{n}×',
+    'host.codebox_title': 'YOUR MULTIPLAYER CODE', 'host.codebox_hint': 'Guest: Multiplayer → enter code',
+    'load.searching_world': 'Searching for world (code {code})...', 'load.searching_game': 'Searching for a game in this browser...',
+    'net.hosting': 'Hosting on BroadcastChannel (open the page in another tab to join)',
+    'net.mp_code_chat': '§aMultiplayer code: §f{code} §7— visible in the ESC menu',
+    'net.searching': '§7Searching for a host in this browser...',
+    'net.no_host_yet': 'No host yet — is the host tab open and the code correct?',
+    'net.no_host_title': '§cNo host found — is the host game running in the same browser, or is the code correct?',
+    'net.found': 'Host found ({code}) — joining...',
+    'net.not_answering': 'Host not responding — continuing search...',
+    'net.relay_connected': 'Relay connected (internet mode, room: {room}).',
+    'net.relay_disconnected': 'Relay disconnected — auto-reconnecting...',
+    'net.relay_error': 'Relay error — reconnecting...',
+    'net.relay_retry': 'Relay reconnect (attempt)...',
+    'net.relay_room': 'Relay room entered — waiting for players...',
+    'net.internet_active': 'Internet mode active — the room can be joined by code from other networks.',
+    'net.internet_connecting': 'Internet mode: connecting relay for code {code}...',
+    'net.relay_unexpected': '§cRelay response unexpected — that is NOT our relay server. Check the Render service name/URL!',
+    'chat.joined': '§e{name} has entered the game', 'chat.left': '§e{name} has left the game',
+    'chat.searching_code': '§7Searching for code §f{code}§7...',
+    'chat.mode_line': '§7Mode: §f{mode} §7· Difficulty: §f{diff}',
+    'chat.level_up': '§d{prof} is now {level}',
+    'death.slain_by': 'was slain by', 'death.shot_by': 'was shot by', 'death.exploded': 'exploded', 'death.died': 'died',
+  },
+  de: {
+    'ui.singleplayer': 'Singleplayer', 'ui.multiplayer': 'Multiplayer', 'ui.options': 'Optionen...',
+    'ui.lang_btn': 'Sprache: Deutsch', 'ui.host_game': 'Spiel hosten (Code wird angezeigt)',
+    'ui.mode_survival': 'Modus: Survival', 'ui.mode_creative': 'Modus: Kreativ',
+    'ui.diff_easy': 'Einfach', 'ui.diff_normal': 'Normal', 'ui.diff_hard': 'Schwer', 'ui.diff_peaceful': 'Friedlich (keine Monster)',
+    'ui.join_code': 'Mit Code beitreten', 'ui.join_auto': 'Im selben Browser beitreten (ohne Code)',
+    'ui.advanced': 'Erweitert: Geräteübergreifend (P2P WebRTC, kein Server)',
+    'ui.rtc_host': 'P2P: Invite-Code erstellen', 'ui.rtc_join': 'P2P: Code einfügen & antworten',
+    'ui.apply': 'Übernehmen', 'ui.copy': 'Kopieren',
+    'ui.ws_ph': 'Optional WebSocket relay ws://host:port/room',
+    'ui.code_ph': 'CODE',
+    'ui.nw_survival': 'Survival', 'ui.nw_creative': 'Kreativ', 'ui.nw_hardcore': 'Hardcore',
+    'death.you_died': 'Du bist gestorben!',
+    'ui.pause_back': 'Zurück zum Spiel', 'ui.pause_options': 'Optionen...', 'ui.pause_quit': 'Speichern & ins Hauptmenü',
+    'pause.game_menu': 'Spielmenü', 'pause.paused': 'Spiel pausiert',
+    'pause.mp_running': 'Die Welt läuft im Multiplayer weiter',
+    'pause.seed': 'Seed', 'pause.mode': 'Modus', 'pause.playtime': 'Spielzeit',
+    'death.respawn': 'Wiederbeleben', 'death.title_screen': 'Zum Hauptmenü',
+    'trade.uses_left': '{n}×',
+    'host.codebox_title': 'DEIN MULTIPLAYER-CODE', 'host.codebox_hint': 'Gast: Multiplayer → Code eingeben',
+    'load.searching_world': 'Suche nach Welt (Code {code})...', 'load.searching_game': 'Suche nach einem Spiel im selben Browser...',
+    'net.hosting': 'Hosting auf BroadcastChannel (öffne die Seite in einem anderen Tab zum Beitreten)',
+    'net.mp_code_chat': '§aMultiplayer-Code: §f{code} §7— sichtbar im ESC-Menü',
+    'net.searching': '§7Suche nach Host im selben Browser...',
+    'net.no_host_yet': 'Noch kein Host gefunden — Host-Tab geöffnet und Code korrekt?',
+    'net.no_host_title': '§cKein Host gefunden — läuft das Host-Spiel im selben Browser, oder stimmt der Code?',
+    'net.found': 'Host gefunden ({code}) — Beitritt...',
+    'net.not_answering': 'Host antwortet nicht — Suche läuft weiter...',
+    'net.relay_connected': 'Relay verbunden (Internet-Modus, Raum: {room}).',
+    'net.relay_disconnected': 'Relay getrennt — automatische Wiederverbindung...',
+    'net.relay_error': 'Relay-Fehler — Wiederverbindung läuft...',
+    'net.relay_retry': 'Relay-Wiederverbindung (Versuch)...',
+    'net.relay_room': 'Relay-Raum betreten — wartet auf Spieler...',
+    'net.internet_active': 'Internet-Modus aktiv — Raum über Code aus anderen Netzwerken beitretbar.',
+    'net.internet_connecting': 'Internet-Modus: verbinde Relay für Code {code}...',
+    'net.relay_unexpected': '§cRelay-Antwort unerwartet — das ist NICHT unser Relay-Server. Render-Service-Name/URL prüfen!',
+    'chat.joined': '§e{name} hat das Spiel betreten', 'chat.left': '§e{name} hat das Spiel verlassen',
+    'chat.searching_code': '§7Suche nach Code §f{code}§7...',
+    'chat.mode_line': '§7Modus: §f{mode} §7· Schwierigkeit: §f{diff}',
+    'chat.level_up': '§d{prof} ist jetzt {level}',
+    'death.slain_by': 'wurde getötet von', 'death.shot_by': 'wurde erschossen von', 'death.exploded': 'explodierte', 'death.died': 'ist gestorben',
+  },
+};
+// T('key', {var: value}) — resolves from the current language, falls back de → en → key
+function T(key, vars) {
+  let s = (I18N[G.lang] && I18N[G.lang][key]) || I18N.de[key] || I18N.en[key] || key;
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+function applyI18N() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = T(el.dataset.i18nPh); });
+  document.documentElement.lang = G.lang;
 }
 
 // Global game object namespaces (populated by later parts)
@@ -261,6 +364,7 @@ const G = {
   state: 'title',           // title | loading | playing | paused | dead | container
   worldName: null, seed: 0, gameMode: 'survival', hardcore: false,
   difficulty: 'normal',     // peaceful | easy | normal | hard  (MC difficulty)
+  lang: 'en',               // 'en' | 'de' — whole-UI language (title-screen toggle)
   time: 6000,               // world time in ticks (0=dawn 6000=noon 12000=dusk 18000=midnight)
   rain: 0, thunder: 0,      // weather intensity 0..1
   dimension: 0,             // 0=overworld 1=nether 2=end
@@ -271,6 +375,10 @@ const G = {
   stats: { mined: 0, placed: 0, crafted: 0, kills: 0, deaths: 0, walked: 0, playedTicks: 0 },
   msgQueue: [], freeCam: false,
 };
+
+// UI language (English default, German via the title-screen toggle) — persisted
+try { G.lang = localStorage.getItem('wc_lang') || 'en'; } catch (e) { G.lang = 'en'; }
+if (G.lang !== 'de' && G.lang !== 'en') G.lang = 'en';
 
 // seeded per-world RNG streams
 G.rng = mulberry32(1);

@@ -507,37 +507,140 @@ function mobDmg(base) {
   return Math.max(1, base * mul);
 }
 
-// ---------- Death messages (official German localisation, Minecraft Wiki "Death messages") ----------
+// ---------- Death messages (official MC localisations, Minecraft Wiki "Death messages") ----------
 const DEATH_MSGS = {
-  fall: 'fiel von einem hohen Ort',
-  fire: 'ging in Flammen auf',
-  lava: 'versuchte, in Lava zu schwimmen',
-  drown: 'ertrank',
-  starve: 'verhungerte',
-  cactus: 'wurde von einem Kaktus erstochen',
-  void: 'fiel aus der Welt',
-  explosion: 'wurde in die Luft gesprengt',
-  dragon: 'wurde vom Enderdrachen erfasst',
+  fall: { en: 'fell from a high place', de: 'fiel von einem hohen Ort' },
+  fire: { en: 'went up in flames', de: 'ging in Flammen auf' },
+  lava: { en: 'tried to swim in lava', de: 'versuchte, in Lava zu schwimmen' },
+  drown: { en: 'drowned', de: 'ertrank' },
+  starve: { en: 'starved to death', de: 'verhungerte' },
+  cactus: { en: 'was pricked to death by a cactus', de: 'wurde von einem Kaktus erstochen' },
+  void: { en: 'fell out of the world', de: 'fiel aus der Welt' },
+  explosion: { en: 'blew up', de: 'wurde in die Luft gesprengt' },
+  dragon: { en: 'was struck down by the Ender Dragon', de: 'wurde vom Enderdrachen erfasst' },
 };
-const MOB_NAMES_DE = {
-  zombie: 'Zombie', skeleton: 'Skelett', creeper: 'Creeper', spider: 'Spinne',
-  enderman: 'Enderman', ghast: 'Ghast', slime: 'Slime', witch: 'Hexe',
-  wither: 'Wither', dragon: 'Enderdrache', player_remote: 'Spieler',
+const MOB_NAMES = {
+  zombie: { en: 'Zombie', de: 'Zombie' }, skeleton: { en: 'Skeleton', de: 'Skelett' },
+  creeper: { en: 'Creeper', de: 'Creeper' }, spider: { en: 'Spider', de: 'Spinne' },
+  enderman: { en: 'Enderman', de: 'Enderman' }, ghast: { en: 'Ghast', de: 'Ghast' },
+  slime: { en: 'Slime', de: 'Slime' }, witch: { en: 'Witch', de: 'Hexe' },
+  wither: { en: 'Wither', de: 'Wither' }, dragon: { en: 'Ender Dragon', de: 'Enderdrache' },
+  player_remote: { en: 'a player', de: 'einem Spieler' },
 };
 function deathMessage(cause, name) {
   const n = '§e' + name + '§7';
-  if (!cause) return n + ' ist gestorben';
+  const lang = G.lang || 'en';
+  if (!cause) return n + ' ' + T('death.died');
   if (cause.startsWith('mob:')) {
-    const mob = MOB_NAMES_DE[cause.slice(4)] || 'ein Monster';
-    return n + ' wurde von ' + mob + ' getötet';
+    const mob = (MOB_NAMES[cause.slice(4)] || {})[lang] || 'a monster';
+    return n + ' ' + T('death.slain_by') + ' ' + mob;
   }
   if (cause.startsWith('arrow:')) {
-    const mob = MOB_NAMES_DE[cause.slice(6)] || 'einem Skelett';
-    return n + ' wurde von ' + mob + ' erschossen';
+    const mob = (MOB_NAMES[cause.slice(6)] || {})[lang] || 'a skeleton';
+    return n + ' ' + T('death.shot_by') + ' ' + mob;
   }
-  if (cause.startsWith('explosion:')) return n + ' explodierte';
+  if (cause.startsWith('explosion:')) return n + ' ' + T('death.exploded');
   const base = DEATH_MSGS[cause];
-  return base ? n + ' ' + base : n + ' ist gestorben';
+  return base ? n + ' ' + base[lang] : n + ' ' + T('death.died');
+}
+
+// ---------- i18n (English default, German toggle — official MC localisations) ----------
+const I18N = {
+  en: {
+    'ui.singleplayer': 'Singleplayer', 'ui.multiplayer': 'Multiplayer', 'ui.options': 'Options...',
+    'ui.lang_btn': 'Language: English', 'ui.host_game': 'Host Game (code will be shown)',
+    'ui.mode_survival': 'Mode: Survival', 'ui.mode_creative': 'Mode: Creative',
+    'ui.diff_easy': 'Easy', 'ui.diff_normal': 'Normal', 'ui.diff_hard': 'Hard', 'ui.diff_peaceful': 'Peaceful (no monsters)',
+    'ui.join_code': 'Join with Code', 'ui.join_auto': 'Join in this browser (no code)',
+    'ui.advanced': 'Advanced: Cross-device (P2P WebRTC, no server)',
+    'ui.rtc_host': 'P2P: Create invite code', 'ui.rtc_join': 'P2P: Paste code & answer',
+    'ui.apply': 'Apply', 'ui.copy': 'Copy',
+    'ui.ws_ph': 'Optional WebSocket relay ws://host:port/room',
+    'ui.code_ph': 'CODE',
+    'ui.nw_survival': 'Survival', 'ui.nw_creative': 'Creative', 'ui.nw_hardcore': 'Hardcore',
+    'death.you_died': 'You Died!',
+    'ui.pause_back': 'Back to Game', 'ui.pause_options': 'Options...', 'ui.pause_quit': 'Save & Quit to Title',
+    'pause.game_menu': 'Game Menu', 'pause.paused': 'Game Paused',
+    'pause.mp_running': 'The world keeps running in multiplayer',
+    'pause.seed': 'Seed', 'pause.mode': 'Mode', 'pause.playtime': 'Playtime',
+    'death.respawn': 'Respawn', 'death.title_screen': 'Title Screen',
+    'trade.uses_left': '{n}×',
+    'host.codebox_title': 'YOUR MULTIPLAYER CODE', 'host.codebox_hint': 'Guest: Multiplayer → enter code',
+    'load.searching_world': 'Searching for world (code {code})...', 'load.searching_game': 'Searching for a game in this browser...',
+    'net.hosting': 'Hosting on BroadcastChannel (open the page in another tab to join)',
+    'net.mp_code_chat': '§aMultiplayer code: §f{code} §7— visible in the ESC menu',
+    'net.searching': '§7Searching for a host in this browser...',
+    'net.no_host_yet': 'No host yet — is the host tab open and the code correct?',
+    'net.no_host_title': '§cNo host found — is the host game running in the same browser, or is the code correct?',
+    'net.found': 'Host found ({code}) — joining...',
+    'net.not_answering': 'Host not responding — continuing search...',
+    'net.relay_connected': 'Relay connected (internet mode, room: {room}).',
+    'net.relay_disconnected': 'Relay disconnected — auto-reconnecting...',
+    'net.relay_error': 'Relay error — reconnecting...',
+    'net.relay_retry': 'Relay reconnect (attempt)...',
+    'net.relay_room': 'Relay room entered — waiting for players...',
+    'net.internet_active': 'Internet mode active — the room can be joined by code from other networks.',
+    'net.internet_connecting': 'Internet mode: connecting relay for code {code}...',
+    'net.relay_unexpected': '§cRelay response unexpected — that is NOT our relay server. Check the Render service name/URL!',
+    'chat.joined': '§e{name} has entered the game', 'chat.left': '§e{name} has left the game',
+    'chat.searching_code': '§7Searching for code §f{code}§7...',
+    'chat.mode_line': '§7Mode: §f{mode} §7· Difficulty: §f{diff}',
+    'chat.level_up': '§d{prof} is now {level}',
+    'death.slain_by': 'was slain by', 'death.shot_by': 'was shot by', 'death.exploded': 'exploded', 'death.died': 'died',
+  },
+  de: {
+    'ui.singleplayer': 'Singleplayer', 'ui.multiplayer': 'Multiplayer', 'ui.options': 'Optionen...',
+    'ui.lang_btn': 'Sprache: Deutsch', 'ui.host_game': 'Spiel hosten (Code wird angezeigt)',
+    'ui.mode_survival': 'Modus: Survival', 'ui.mode_creative': 'Modus: Kreativ',
+    'ui.diff_easy': 'Einfach', 'ui.diff_normal': 'Normal', 'ui.diff_hard': 'Schwer', 'ui.diff_peaceful': 'Friedlich (keine Monster)',
+    'ui.join_code': 'Mit Code beitreten', 'ui.join_auto': 'Im selben Browser beitreten (ohne Code)',
+    'ui.advanced': 'Erweitert: Geräteübergreifend (P2P WebRTC, kein Server)',
+    'ui.rtc_host': 'P2P: Invite-Code erstellen', 'ui.rtc_join': 'P2P: Code einfügen & antworten',
+    'ui.apply': 'Übernehmen', 'ui.copy': 'Kopieren',
+    'ui.ws_ph': 'Optional WebSocket relay ws://host:port/room',
+    'ui.code_ph': 'CODE',
+    'ui.nw_survival': 'Survival', 'ui.nw_creative': 'Kreativ', 'ui.nw_hardcore': 'Hardcore',
+    'death.you_died': 'Du bist gestorben!',
+    'ui.pause_back': 'Zurück zum Spiel', 'ui.pause_options': 'Optionen...', 'ui.pause_quit': 'Speichern & ins Hauptmenü',
+    'pause.game_menu': 'Spielmenü', 'pause.paused': 'Spiel pausiert',
+    'pause.mp_running': 'Die Welt läuft im Multiplayer weiter',
+    'pause.seed': 'Seed', 'pause.mode': 'Modus', 'pause.playtime': 'Spielzeit',
+    'death.respawn': 'Wiederbeleben', 'death.title_screen': 'Zum Hauptmenü',
+    'trade.uses_left': '{n}×',
+    'host.codebox_title': 'DEIN MULTIPLAYER-CODE', 'host.codebox_hint': 'Gast: Multiplayer → Code eingeben',
+    'load.searching_world': 'Suche nach Welt (Code {code})...', 'load.searching_game': 'Suche nach einem Spiel im selben Browser...',
+    'net.hosting': 'Hosting auf BroadcastChannel (öffne die Seite in einem anderen Tab zum Beitreten)',
+    'net.mp_code_chat': '§aMultiplayer-Code: §f{code} §7— sichtbar im ESC-Menü',
+    'net.searching': '§7Suche nach Host im selben Browser...',
+    'net.no_host_yet': 'Noch kein Host gefunden — Host-Tab geöffnet und Code korrekt?',
+    'net.no_host_title': '§cKein Host gefunden — läuft das Host-Spiel im selben Browser, oder stimmt der Code?',
+    'net.found': 'Host gefunden ({code}) — Beitritt...',
+    'net.not_answering': 'Host antwortet nicht — Suche läuft weiter...',
+    'net.relay_connected': 'Relay verbunden (Internet-Modus, Raum: {room}).',
+    'net.relay_disconnected': 'Relay getrennt — automatische Wiederverbindung...',
+    'net.relay_error': 'Relay-Fehler — Wiederverbindung läuft...',
+    'net.relay_retry': 'Relay-Wiederverbindung (Versuch)...',
+    'net.relay_room': 'Relay-Raum betreten — wartet auf Spieler...',
+    'net.internet_active': 'Internet-Modus aktiv — Raum über Code aus anderen Netzwerken beitretbar.',
+    'net.internet_connecting': 'Internet-Modus: verbinde Relay für Code {code}...',
+    'net.relay_unexpected': '§cRelay-Antwort unerwartet — das ist NICHT unser Relay-Server. Render-Service-Name/URL prüfen!',
+    'chat.joined': '§e{name} hat das Spiel betreten', 'chat.left': '§e{name} hat das Spiel verlassen',
+    'chat.searching_code': '§7Suche nach Code §f{code}§7...',
+    'chat.mode_line': '§7Modus: §f{mode} §7· Schwierigkeit: §f{diff}',
+    'chat.level_up': '§d{prof} ist jetzt {level}',
+    'death.slain_by': 'wurde getötet von', 'death.shot_by': 'wurde erschossen von', 'death.exploded': 'explodierte', 'death.died': 'ist gestorben',
+  },
+};
+// T('key', {var: value}) — resolves from the current language, falls back de → en → key
+function T(key, vars) {
+  let s = (I18N[G.lang] && I18N[G.lang][key]) || I18N.de[key] || I18N.en[key] || key;
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+function applyI18N() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = T(el.dataset.i18nPh); });
+  document.documentElement.lang = G.lang;
 }
 
 // Global game object namespaces (populated by later parts)
@@ -547,6 +650,7 @@ const G = {
   state: 'title',           // title | loading | playing | paused | dead | container
   worldName: null, seed: 0, gameMode: 'survival', hardcore: false,
   difficulty: 'normal',     // peaceful | easy | normal | hard  (MC difficulty)
+  lang: 'en',               // 'en' | 'de' — whole-UI language (title-screen toggle)
   time: 6000,               // world time in ticks (0=dawn 6000=noon 12000=dusk 18000=midnight)
   rain: 0, thunder: 0,      // weather intensity 0..1
   dimension: 0,             // 0=overworld 1=nether 2=end
@@ -557,6 +661,10 @@ const G = {
   stats: { mined: 0, placed: 0, crafted: 0, kills: 0, deaths: 0, walked: 0, playedTicks: 0 },
   msgQueue: [], freeCam: false,
 };
+
+// UI language (English default, German via the title-screen toggle) — persisted
+try { G.lang = localStorage.getItem('wc_lang') || 'en'; } catch (e) { G.lang = 'en'; }
+if (G.lang !== 'de' && G.lang !== 'en') G.lang = 'en';
 
 // seeded per-world RNG streams
 G.rng = mulberry32(1);
@@ -7763,7 +7871,7 @@ const UI = {
     this.selectedTradeIdx = null;
     this.merchantResult = null;
     this.openScreen(win => {
-      const title = mkEl('div', 'mc-window-title', win, (PROFESSION_NAMES_DE[v.profession] || 'Dorfbewohner') + ' · ' + LEVEL_NAMES_DE[v.villagerLevel]);
+      const title = mkEl('div', 'mc-window-title', win, profName(v.profession) + ' · ' + levelName(v.villagerLevel));
       const sp = mkEl('span', '', title);
       const closeBtn = mkEl('button', 'mc-btn', title, 'X');
       closeBtn.style.padding = '2px 10px';
@@ -7811,7 +7919,7 @@ const UI = {
       if (o.buyB) icon(o.buyB);
       mkEl('div', '', cell, '→').style.cssText = 'color:#aaa;font-size:14px;';
       icon(o.sell);
-      const left = mkEl('div', '', cell, (o.maxUses - o.uses) + '×');
+      const left = mkEl('div', '', cell, T('trade.uses_left', { n: (o.maxUses - o.uses) }));
       left.style.cssText = 'margin-left:auto;color:#8f8;font-size:11px;';
       cell.onclick = () => {
         this.selectedTradeIdx = i;
@@ -7854,7 +7962,7 @@ const UI = {
         this.merchantVillager.villagerLevel++;
         const nt = (VILLAGER_TRADES[this.merchantVillager.profession][this.merchantVillager.villagerLevel] || []).map(mkOffer);
         this.merchantVillager.offers.push(...nt);
-        Chat.add('§d' + (PROFESSION_NAMES_DE[this.merchantVillager.profession] || 'Dorfbewohner') + ' ist jetzt ' + LEVEL_NAMES_DE[this.merchantVillager.villagerLevel]);
+        Chat.add(T('chat.level_up', { prof: profName(this.merchantVillager.profession), level: levelName(this.merchantVillager.villagerLevel) }));
       }
       SFX.playDig('wood');
     };
@@ -10476,6 +10584,9 @@ class Net {
     this.hostId = null;
     this.snapshotT = 0;
     this.posT = 0;
+    this._closing = false;      // a fresh Net must never inherit a quit flag
+    this._midSeq = 0;
+    this._seen = new Map();
   }
 
   log(msg, err) {
@@ -10487,7 +10598,12 @@ class Net {
   // ---------- transport: send to all connected peers ----------
   sendAll(obj) {
     this._midSeq = (this._midSeq || 0) + 1;
-    obj._mid = this._midSeq; // dedup id — a dual-transport (BC + WS) client receives every frame twice
+    // dedup id — MUST be scoped to the sender: a page reload restarts the
+    // counter at 1, and a receiver-side dedup keyed only on the number would
+    // then silently drop EVERY new message from that player (the "players
+    // stop seeing each other" bug). Sender id + counter is collision-free.
+    obj._mid = this.myId + '-' + this._midSeq;
+    obj._from = this.myId;
     const s = JSON.stringify(obj);
     this.bytesOut = (this.bytesOut || 0) + s.length; // F3 traffic meter
     if (this.bc) this.bc.postMessage({ ...obj, _from: this.myId });
@@ -10535,7 +10651,7 @@ class Net {
           rain: G.rain, thunder: G.thunder,
         };
         if (reply) reply(welcome);
-        Chat.add('§e' + obj.name + ' hat das Spiel betreten');
+        Chat.add(T('chat.joined', { name: obj.name }));
         // create remote player entity
         this.ensureRemotePlayer(obj.id, obj.name);
         break;
@@ -10579,7 +10695,7 @@ class Net {
         if (val) val.textContent = this.roomCode;
         this.log('Connected! World seed: ' + obj.seed);
         Chat.add('§aConnected to ' + obj.name + "'s world");
-        Chat.add('§7Modus: §f' + (G.gameMode || 'survival') + ' §7· Schwierigkeit: §f' + (G.difficulty || 'normal'));
+        Chat.add(T('chat.mode_line', { mode: (G.gameMode || 'survival'), diff: (G.difficulty || 'normal') }));
         break;
       }
       case 'pos': {
@@ -10640,7 +10756,7 @@ class Net {
           this.remotePlayers.delete(obj.id);
         }
         this.peers.delete(obj.id);
-        Chat.add('§e' + (obj.name || 'Ein Spieler') + ' hat das Spiel verlassen');
+        Chat.add(T('chat.left', { name: obj.name || 'Player' }));
         break;
       }
     }
@@ -10720,13 +10836,13 @@ class Net {
           this._disco.postMessage(m);
         } catch (e) { }
       }, 1500);
-      this.log('Hosting on BroadcastChannel (open the page in another tab to join)');
+      this.log(T('net.hosting'));
       // the HUD badge is ONLY shown inside menu overlays (showScreen) — never during gameplay
       const val = document.getElementById('mp-code-value');
       if (val) val.textContent = this.roomCode;
-      Chat.add('§aMultiplayer-Code: §f' + this.roomCode + ' §7— sichtbar im ESC-Menü');
+      Chat.add(T('net.mp_code_chat', { code: this.roomCode }));
     } else {
-      this.log('Suche nach Host im selben Browser...');
+      this.log(T('net.searching'));
       // instant discovery request instead of waiting for the next announce tick
       if (this._discoveryJoin) {
         setTimeout(() => { try { this.bc.postMessage({ t: 'discover', id: this.myId }); } catch (e) { } }, 120);
@@ -10739,12 +10855,12 @@ class Net {
           this.sendAll({ t: 'join', id: this.myId, name: this.myName });
         }, 1500);
       }
-      setTimeout(() => { if (!this.joined) this.log('Noch kein Host gefunden — Host-Tab geöffnet und Code korrekt?', true); }, 4000);
+      setTimeout(() => { if (!this.joined) this.log(T('net.no_host_yet'), true); }, 4000);
       // guest stuck on the search screen: send them back with a clear message
       setTimeout(() => {
         if (!this.joined && G.state === 'title') {
           showScreen('multiplayer-screen');
-          Chat.add('§cKein Host gefunden — läuft das Host-Spiel im selben Browser, oder stimmt der Code?');
+          Chat.add(T('net.no_host_title'));
         }
       }, 8000);
     }
@@ -10770,13 +10886,13 @@ class Net {
         try { this.bc = new BroadcastChannel('webcraft-' + this.roomCode); } catch (e) { return; }
         this._bindChannel();
         this._triedHosts.add(this.roomCode);
-        this.log('Host gefunden (' + this.roomCode + ') — Beitritt...');
+        this.log(T('net.found', { code: this.roomCode }));
         this.sendAll({ t: 'join', id: this.myId, name: this.myName });
         // fallback: no welcome within 2.5 s → this announce was stale; go back
         // to the discovery channel and keep searching
         setTimeout(() => {
           if (!this.joined && G.net === this && this.mode === 'bc-join') {
-            this.log('Host antwortet nicht — Suche läuft weiter...');
+            this.log(T('net.not_answering'));
             try { this.bc.close(); } catch (e) { }
             this.roomCode = 'LAN';
             this.bc = new BroadcastChannel('webcraft-LAN');
@@ -10856,16 +10972,18 @@ class Net {
   // ---------- WebSocket relay ----------
   connectWS(url) {
     try {
+      this._wsUrl = url;
       this.ws = new WebSocket(url);
       if (!this.bc) { this.mode = 'ws'; this.isHostOrSingle = !this._wsJoinedAsClient; }
       this.ws.onopen = () => {
-        this.log('Relay verbunden (Internet-Modus, Raum: ' + (this.roomCode || 'default') + ').');
+        this._wsBackoff = 0; // connection healthy — reset retry backoff
+        this.log(T('net.relay_connected', { room: (this.roomCode || 'default') }));
         this.ws.send(JSON.stringify({ t: 'join-room', room: 'webcraft-' + (this.roomCode || 'default'), id: this.myId }));
         // hardening: OUR relay confirms with room-joined — anything else is a
         // foreign service on that URL (wrong Render service name)
         setTimeout(() => {
           if (this.ws && this.ws.readyState === 1 && !this._roomJoined) {
-            this.log('§cRelay-Antwort unerwartet — das ist NICHT unser Relay-Server. Render-Service-Name/URL prüfen!', true);
+            this.log(T('net.relay_unexpected'), true);
           }
         }, 3000);
         // coded join over the relay: request membership immediately (no wait)
@@ -10874,13 +10992,31 @@ class Net {
       this.ws.onmessage = (ev) => {
         try {
           const obj = JSON.parse(ev.data);
-          if (obj.t === 'room-joined') { this._roomJoined = true; this.log('Relay-Raum betreten — wartet auf Spieler...'); return; }
+          if (obj.t === 'room-joined') { this._roomJoined = true; this.log(T('net.relay_room')); return; }
           this.onMessage(obj, (o) => { try { this.ws.send(JSON.stringify({ ...o, _to: obj.id })); } catch (e) { } });
         } catch (e) { }
       };
-      this.ws.onclose = () => this.log('Relay disconnected', true);
-      this.ws.onerror = () => this.log('Relay error — check the URL', true);
+      this.ws.onclose = () => {
+        this.log(T('net.relay_disconnected'), true);
+        this.scheduleWsReconnect();
+      };
+      this.ws.onerror = () => this.log(T('net.relay_error'), true);
     } catch (e) { this.log('WS error: ' + e.message, true); }
+  }
+
+  // exponential-backoff reconnect for the relay WebSocket — Render free
+  // instances spin down and rotate; a dropped socket must heal itself
+  scheduleWsReconnect() {
+    if (this._closing) return;                       // explicit quit → stay down
+    const now = performance.now();
+    if (now - (this._lastWsTry || 0) < 800) return;  // debounce double-fires
+    this._lastWsTry = now;
+    clearTimeout(this._wsReconnectT);
+    this._wsReconnectT = setTimeout(() => {
+      if (this._closing || this.mode === null) return;
+      this.log(T('net.relay_retry'));
+      this.connectWS(this._wsUrl);
+    }, 1200);
   }
 
   // ---------- per-tick sync ----------
@@ -10922,7 +11058,7 @@ class Net {
           if (i >= 0) G.entities.splice(i, 1);
           this.remotePlayers.delete(rid);
           this.peers.delete(rid);
-          Chat.add('§e' + (e.nameTag || 'Ein Spieler') + ' hat das Spiel verlassen');
+          Chat.add(T('chat.left', { name: e.nameTag || 'Player' }));
           continue;
         }
         if (e.dead) { e.deathTime++; continue; } // tip the fallen model over
@@ -10949,11 +11085,13 @@ class Net {
   }
 
   shutdown() {
+    this._closing = true; // stop the WS reconnect loop — an explicit quit stays down
     const badge = document.getElementById('mp-code-badge');
     if (badge) badge.style.display = 'none';
     this.sendAll({ t: 'left', id: this.myId, name: this.myName });
     clearInterval(this._announce);
     clearInterval(this._joinRetry);
+    clearTimeout(this._wsReconnectT);
     try { this._disco && this._disco.close(); } catch (e) { }
     try { this.bc && this.bc.close(); } catch (e) { }
     try { this.dc && this.dc.close(); } catch (e) { }
@@ -11155,8 +11293,10 @@ function setupEndFight() {
 // ============================================================================
 const NEXT_LEVEL_XP_THRESHOLDS = [0, 10, 70, 150, 250]; // VillagerData.java
 const VILLAGER_TRADES = {"armorer":{"1":[{"buy":{"id":"emerald","count":7},"buyB":null,"sell":{"id":"iron_leggings","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":4},"buyB":null,"sell":{"id":"iron_boots","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":5},"buyB":null,"sell":{"id":"iron_helmet","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":9},"buyB":null,"sell":{"id":"iron_chestplate","count":1},"maxUses":12,"xp":1}],"2":[{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"chainmail_boots","count":1},"maxUses":12,"xp":5},{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"chainmail_leggings","count":1},"maxUses":12,"xp":5}],"3":[{"buy":{"id":"lava_bucket","count":1},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":20},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"chainmail_helmet","count":1},"maxUses":12,"xp":10},{"buy":{"id":"emerald","count":4},"buyB":null,"sell":{"id":"chainmail_chestplate","count":1},"maxUses":12,"xp":10},{"buy":{"id":"diamond","count":1},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":20}],"4":[{"buy":{"id":"emerald","count":14},"buyB":null,"sell":{"id":"diamond_leggings","count":1},"maxUses":3,"xp":15},{"buy":{"id":"emerald","count":8},"buyB":null,"sell":{"id":"diamond_boots","count":1},"maxUses":3,"xp":15}],"5":[{"buy":{"id":"emerald","count":8},"buyB":null,"sell":{"id":"diamond_helmet","count":1},"maxUses":3,"xp":30},{"buy":{"id":"emerald","count":16},"buyB":null,"sell":{"id":"diamond_chestplate","count":1},"maxUses":3,"xp":30}]},"butcher":{"1":[{"buy":{"id":"chicken","count":14},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"porkchop","count":7},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2}],"2":[{"buy":{"id":"coal","count":15},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"cooked_porkchop","count":5},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"cooked_chicken","count":8},"maxUses":16,"xp":5}],"3":[{"buy":{"id":"mutton","count":7},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":20},{"buy":{"id":"beef","count":10},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":20}],"5":[{"buy":{"id":"sweet_berries","count":10},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":30}]},"cartographer":{"1":[{"buy":{"id":"paper","count":24},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":2}],"2":[{"buy":{"id":"glass_pane","count":11},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":10}],"3":[{"buy":{"id":"compass","count":1},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":20}]},"cleric":{"1":[{"buy":{"id":"rotten_flesh","count":32},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"redstone","count":2},"maxUses":12,"xp":1}],"2":[{"buy":{"id":"gold_ingot","count":3},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":10},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"lapis_lazuli","count":1},"maxUses":12,"xp":5}],"3":[{"buy":{"id":"emerald","count":4},"buyB":null,"sell":{"id":"glowstone","count":1},"maxUses":12,"xp":10}],"4":[{"buy":{"id":"glass_bottle","count":9},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":30},{"buy":{"id":"emerald","count":5},"buyB":null,"sell":{"id":"ender_pearl","count":1},"maxUses":12,"xp":15}],"5":[{"buy":{"id":"nether_wart","count":22},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":30},{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"experience_bottle","count":1},"maxUses":12,"xp":30}]},"common_smith":{"1":[{"buy":{"id":"coal","count":15},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2}],"2":[{"buy":{"id":"iron_ingot","count":4},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":10}]},"farmer":{"1":[{"buy":{"id":"wheat_item","count":20},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"potato","count":26},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"carrot","count":22},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"bread","count":6},"maxUses":16,"xp":1}],"2":[{"buy":{"id":"pumpkin","count":6},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":10},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"pumpkin_pie","count":4},"maxUses":12,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"apple","count":4},"maxUses":16,"xp":5}],"3":[{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"cookie","count":18},"maxUses":12,"xp":10},{"buy":{"id":"melon","count":4},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":20}],"5":[{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"golden_carrot","count":3},"maxUses":12,"xp":30}]},"fisherman":{"1":[{"buy":{"id":"string","count":20},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"coal","count":10},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2}]},"fletcher":{"1":[{"buy":{"id":"stick","count":32},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"arrow","count":16},"maxUses":12,"xp":1},{"buy":{"id":"gravel","count":10},"buyB":null,"sell":{"id":"flint","count":10},"maxUses":12,"xp":1}],"2":[{"buy":{"id":"flint","count":26},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":10},{"buy":{"id":"emerald","count":2},"buyB":null,"sell":{"id":"bow","count":1},"maxUses":12,"xp":5}],"3":[{"buy":{"id":"string","count":14},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":20}],"4":[{"buy":{"id":"feather","count":24},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":30},{"buy":{"id":"emerald","count":2},"buyB":null,"sell":{"id":"bow","count":1},"maxUses":3,"xp":15}]},"leatherworker":{"1":[{"buy":{"id":"leather","count":6},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"leather_leggings","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":7},"buyB":null,"sell":{"id":"leather_chestplate","count":1},"maxUses":12,"xp":1}],"2":[{"buy":{"id":"flint","count":26},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":10},{"buy":{"id":"emerald","count":5},"buyB":null,"sell":{"id":"leather_helmet","count":1},"maxUses":12,"xp":5},{"buy":{"id":"emerald","count":4},"buyB":null,"sell":{"id":"leather_boots","count":1},"maxUses":12,"xp":5}],"3":[{"buy":{"id":"emerald","count":7},"buyB":null,"sell":{"id":"leather_chestplate","count":1},"maxUses":12,"xp":1}],"5":[{"buy":{"id":"emerald","count":6},"buyB":null,"sell":{"id":"saddle","count":1},"maxUses":12,"xp":30},{"buy":{"id":"emerald","count":5},"buyB":null,"sell":{"id":"leather_helmet","count":1},"maxUses":12,"xp":5}]},"librarian":{"1":[{"buy":{"id":"paper","count":24},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":9},"buyB":null,"sell":{"id":"bookshelf","count":1},"maxUses":12,"xp":1}],"2":[{"buy":{"id":"book","count":4},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":10}],"3":[{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"glass","count":4},"maxUses":12,"xp":10}],"4":[{"buy":{"id":"emerald","count":5},"buyB":null,"sell":{"id":"clock","count":1},"maxUses":12,"xp":15},{"buy":{"id":"emerald","count":4},"buyB":null,"sell":{"id":"compass","count":1},"maxUses":12,"xp":15}]},"mason":{"1":[{"buy":{"id":"clay_ball","count":10},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"brick","count":10},"maxUses":16,"xp":1}],"2":[{"buy":{"id":"stone","count":20},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":10},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"chiseled_stone_bricks","count":4},"maxUses":16,"xp":5}],"3":[{"buy":{"id":"granite","count":16},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":20},{"buy":{"id":"andesite","count":16},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":20},{"buy":{"id":"diorite","count":16},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":20}],"4":[{"buy":{"id":"quartz","count":12},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":30}],"5":[{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"quartz_block","count":1},"maxUses":12,"xp":30}]},"shepherd":{"1":[{"buy":{"id":"white_wool","count":18},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"brown_wool","count":18},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"gray_wool","count":18},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"black_wool","count":18},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":16,"xp":2},{"buy":{"id":"emerald","count":2},"buyB":null,"sell":{"id":"shears","count":1},"maxUses":12,"xp":1}],"2":[{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"white_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"orange_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"magenta_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"light_blue_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"yellow_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"lime_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"pink_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"gray_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"light_gray_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"cyan_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"purple_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"blue_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"brown_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"green_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"red_wool","count":1},"maxUses":16,"xp":5},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"black_wool","count":1},"maxUses":16,"xp":5}],"3":[{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"white_bed","count":1},"maxUses":12,"xp":10},{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"red_bed","count":1},"maxUses":12,"xp":10}]},"toolsmith":{"1":[{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"stone_axe","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"stone_shovel","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"stone_pickaxe","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"stone_hoe","count":1},"maxUses":12,"xp":1}],"3":[{"buy":{"id":"flint","count":30},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":20},{"buy":{"id":"emerald","count":1},"buyB":null,"sell":{"id":"iron_axe","count":1},"maxUses":3,"xp":10},{"buy":{"id":"emerald","count":2},"buyB":null,"sell":{"id":"iron_shovel","count":1},"maxUses":3,"xp":10},{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"iron_pickaxe","count":1},"maxUses":3,"xp":10},{"buy":{"id":"emerald","count":4},"buyB":null,"sell":{"id":"diamond_hoe","count":1},"maxUses":3,"xp":10}],"4":[{"buy":{"id":"emerald","count":12},"buyB":null,"sell":{"id":"diamond_axe","count":1},"maxUses":3,"xp":15},{"buy":{"id":"emerald","count":5},"buyB":null,"sell":{"id":"diamond_shovel","count":1},"maxUses":3,"xp":15},{"buy":{"id":"diamond","count":1},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":30}],"5":[{"buy":{"id":"emerald","count":13},"buyB":null,"sell":{"id":"diamond_pickaxe","count":1},"maxUses":3,"xp":30}]},"wandering_trader":{},"weaponsmith":{"1":[{"buy":{"id":"emerald","count":3},"buyB":null,"sell":{"id":"iron_axe","count":1},"maxUses":12,"xp":1},{"buy":{"id":"emerald","count":2},"buyB":null,"sell":{"id":"iron_sword","count":1},"maxUses":12,"xp":1}],"3":[{"buy":{"id":"flint","count":24},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":20}],"4":[{"buy":{"id":"emerald","count":12},"buyB":null,"sell":{"id":"diamond_axe","count":1},"maxUses":3,"xp":15},{"buy":{"id":"diamond","count":1},"buyB":null,"sell":{"id":"emerald","count":1},"maxUses":12,"xp":30}],"5":[{"buy":{"id":"emerald","count":8},"buyB":null,"sell":{"id":"diamond_sword","count":1},"maxUses":3,"xp":30}]}};
-const PROFESSION_NAMES_DE = { farmer: 'Bauer', fisherman: 'Fischer', librarian: 'Bibliothekar', shepherd: 'Schäfer', fletcher: 'Pfeilmacher', toolsmith: 'Werkzeugschmied', armorer: 'Rüstungsschmied', weaponsmith: 'Waffenschmied', butcher: 'Metzger', cleric: 'Geistlicher', mason: 'Maurer', leatherworker: 'Gerber', cartographer: 'Kartograf', common_smith: 'Schmied' };
-const LEVEL_NAMES_DE = ['Neuling', 'Lehrling', 'Geselle', 'Experte', 'Meister'];
+const PROFESSION_NAMES = { farmer: { en: 'Farmer', de: 'Bauer' }, fisherman: { en: 'Fisherman', de: 'Fischer' }, librarian: { en: 'Librarian', de: 'Bibliothekar' }, shepherd: { en: 'Shepherd', de: 'Schäfer' }, fletcher: { en: 'Fletcher', de: 'Pfeilmacher' }, toolsmith: { en: 'Tool Smith', de: 'Werkzeugschmied' }, armorer: { en: 'Armorer', de: 'Rüstungsschmied' }, weaponsmith: { en: 'Weapon Smith', de: 'Waffenschmied' }, butcher: { en: 'Butcher', de: 'Metzger' }, cleric: { en: 'Cleric', de: 'Geistlicher' }, mason: { en: 'Mason', de: 'Maurer' }, leatherworker: { en: 'Leatherworker', de: 'Gerber' }, cartographer: { en: 'Cartographer', de: 'Kartograf' }, common_smith: { en: 'Smith', de: 'Schmied' } };
+const LEVEL_NAMES = [{ en: 'Novice', de: 'Neuling' }, { en: 'Apprentice', de: 'Lehrling' }, { en: 'Journeyman', de: 'Geselle' }, { en: 'Expert', de: 'Experte' }, { en: 'Master', de: 'Meister' }];
+function profName(p) { return (PROFESSION_NAMES[p] || {})[G.lang || 'en'] || p; }
+function levelName(l) { return (LEVEL_NAMES[l - 1] || {})[G.lang || 'en'] || ('Level ' + l); }
 
 // MerchantOffer constructor equivalent (MerchantOffer.java field layout)
 function mkOffer(t) {
@@ -12116,6 +12256,11 @@ function quitToTitle() {
   if (G.net) G.net.shutdown();
   G.net = null;
   G.state = 'title';
+  // drop the loaded world so the title screen renders the MENU PANORAMA
+  // again — otherwise the last in-game frame stayed frozen behind the menu
+  G.world = null; G.player = null;
+  G.entities = []; G.particles = [];
+  DIM_WORLDS.clear();
   showScreen('title-screen');
   document.exitPointerLock && document.exitPointerLock();
 }
@@ -12520,6 +12665,14 @@ const Game = {
     if (G.state === 'dead' && G.player && G.player.dead) {
       G.player.deathTime = (G.player.deathTime || 0) + 1;
       if (G.player.deathTime === 20) UI.showDeathScreen(G.lastDeath ? G.lastDeath.cause : null);
+      // MC: the dead body keeps falling with NORMAL-speed physics — the old
+      // gated version froze the body, which read as slow-motion lag
+      const dp = G.player;
+      dp.px = dp.x; dp.py = dp.y; dp.pz = dp.z;
+      dp.onGround = false; // the stale standing-flag zeroed vy every tick (slow motion)
+      dp.vy -= 0.08; dp.vy *= 0.98;
+      dp.move(dp.vx, dp.vy, dp.vz);
+      if (dp.onGround) dp.vy = 0;
     }
     // entities
     for (const e of G.entities) {
@@ -12571,7 +12724,9 @@ const Game = {
     // Player-Sim nicht (paused/dead/container), friert hurtTime > 0 ein und
     // das variierende Frame-Alpha würde bob/hurt-Roll DAUERHAFT schütteln.
     const camLive = G.state === 'playing' || (G.state === 'paused' && G.net && G.net.mode !== null);
-    const cAlpha = camLive ? alpha : 1;
+    // 'dead' interpolates too — the death fall must be as smooth as the live
+    // game (the old cAlpha=1 rendered the death fall in visible 20 Hz steps)
+    const cAlpha = (camLive || G.state === 'dead') ? alpha : 1;
     // smooth sneak-eye and sprint-FOV transitions (frame-rate independent)
     if (camLive) {
       p.sneakSmooth = (p.sneakSmooth ?? 0) + ((p.sneaking ? 1 : 0) - (p.sneakSmooth ?? 0)) * Math.min(1, dt * 10);
@@ -12593,13 +12748,16 @@ const Game = {
       }
     }
     // MC death tilt (1:1): during the ~1 s death animation the camera tips
-    // over sideways and sinks slightly — THEN the death screen appears
+    // over sideways and sinks slightly — THEN the death screen appears.
+    // The progress is FRAME-TIME based (not 20 Hz deathTime) so the animation
+    // runs butter-smooth at full frame rate — no slow-motion look.
     let deathDrop = 0;
     if (p.dead) {
-      const dp = Math.min(1, (p.deathTime || 0) / 20);
+      p._deathMs = Math.min(1200, (p._deathMs || 0) + dt * 1000);
+      const dp = Math.min(1, p._deathMs / 1000);
       camRoll += dp * dp * rad(90);
       deathDrop = dp * 0.35;
-    }
+    } else p._deathMs = 0;
 
     const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     const interpSwingT = p.isSwinging ? clamp(lerp(p.prevSwingT ?? p.swingT, p.swingT, cAlpha), 0, 1) : 0;
@@ -12687,6 +12845,15 @@ function boot() {
 }
 
 function setupMenus() {
+  // language toggle (title screen): EN default, DE on click — persisted
+  $('btn-lang').onclick = () => {
+    SFX.playClick();
+    G.lang = G.lang === 'en' ? 'de' : 'en';
+    try { localStorage.setItem('wc_lang', G.lang); } catch (e) { }
+    applyI18N();
+    refreshWorldList && refreshWorldList();
+  };
+  applyI18N();
   $('btn-singleplayer').onclick = () => { SFX.playClick(); refreshWorldList(); showScreen('world-select-screen'); };
   $('btn-world-back').onclick = () => { SFX.playClick(); showScreen('title-screen'); };
   $('btn-create-world').onclick = () => {
@@ -12724,7 +12891,7 @@ function setupMenus() {
     // internet mode: the room is ALSO reachable by code from other networks
     // via our relay server (guests join the same room over WebSockets)
     if (SIGNAL_URL) {
-      G.net.log('Internet-Modus aktiv — Raum über Code aus anderen Netzwerken beitretbar.');
+      G.net.log(T('net.internet_active'));
       G.net.connectWS(SIGNAL_URL);
     }
     // the room code is the ONE thing a guest needs — show it huge
@@ -12767,7 +12934,7 @@ function setupMenus() {
     // internet mode: the SAME code joins over the relay from other networks —
     // both transports run in parallel; the message dedup removes doubles
     if (SIGNAL_URL) {
-      G.net.log('Internet-Modus: verbinde Relay für Code ' + code + '...');
+      G.net.log(T('net.internet_connecting', { code }));
       G.net.connectWS(SIGNAL_URL);
     }
     if (G.state === 'title') {

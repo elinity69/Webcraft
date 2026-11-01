@@ -937,6 +937,11 @@ function quitToTitle() {
   if (G.net) G.net.shutdown();
   G.net = null;
   G.state = 'title';
+  // drop the loaded world so the title screen renders the MENU PANORAMA
+  // again — otherwise the last in-game frame stayed frozen behind the menu
+  G.world = null; G.player = null;
+  G.entities = []; G.particles = [];
+  DIM_WORLDS.clear();
   showScreen('title-screen');
   document.exitPointerLock && document.exitPointerLock();
 }
@@ -1341,6 +1346,14 @@ const Game = {
     if (G.state === 'dead' && G.player && G.player.dead) {
       G.player.deathTime = (G.player.deathTime || 0) + 1;
       if (G.player.deathTime === 20) UI.showDeathScreen(G.lastDeath ? G.lastDeath.cause : null);
+      // MC: the dead body keeps falling with NORMAL-speed physics — the old
+      // gated version froze the body, which read as slow-motion lag
+      const dp = G.player;
+      dp.px = dp.x; dp.py = dp.y; dp.pz = dp.z;
+      dp.onGround = false; // the stale standing-flag zeroed vy every tick (slow motion)
+      dp.vy -= 0.08; dp.vy *= 0.98;
+      dp.move(dp.vx, dp.vy, dp.vz);
+      if (dp.onGround) dp.vy = 0;
     }
     // entities
     for (const e of G.entities) {
@@ -1392,7 +1405,9 @@ const Game = {
     // Player-Sim nicht (paused/dead/container), friert hurtTime > 0 ein und
     // das variierende Frame-Alpha würde bob/hurt-Roll DAUERHAFT schütteln.
     const camLive = G.state === 'playing' || (G.state === 'paused' && G.net && G.net.mode !== null);
-    const cAlpha = camLive ? alpha : 1;
+    // 'dead' interpolates too — the death fall must be as smooth as the live
+    // game (the old cAlpha=1 rendered the death fall in visible 20 Hz steps)
+    const cAlpha = (camLive || G.state === 'dead') ? alpha : 1;
     // smooth sneak-eye and sprint-FOV transitions (frame-rate independent)
     if (camLive) {
       p.sneakSmooth = (p.sneakSmooth ?? 0) + ((p.sneaking ? 1 : 0) - (p.sneakSmooth ?? 0)) * Math.min(1, dt * 10);
@@ -1414,13 +1429,16 @@ const Game = {
       }
     }
     // MC death tilt (1:1): during the ~1 s death animation the camera tips
-    // over sideways and sinks slightly — THEN the death screen appears
+    // over sideways and sinks slightly — THEN the death screen appears.
+    // The progress is FRAME-TIME based (not 20 Hz deathTime) so the animation
+    // runs butter-smooth at full frame rate — no slow-motion look.
     let deathDrop = 0;
     if (p.dead) {
-      const dp = Math.min(1, (p.deathTime || 0) / 20);
+      p._deathMs = Math.min(1200, (p._deathMs || 0) + dt * 1000);
+      const dp = Math.min(1, p._deathMs / 1000);
       camRoll += dp * dp * rad(90);
       deathDrop = dp * 0.35;
-    }
+    } else p._deathMs = 0;
 
     const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
     const interpSwingT = p.isSwinging ? clamp(lerp(p.prevSwingT ?? p.swingT, p.swingT, cAlpha), 0, 1) : 0;
@@ -1508,6 +1526,15 @@ function boot() {
 }
 
 function setupMenus() {
+  // language toggle (title screen): EN default, DE on click — persisted
+  $('btn-lang').onclick = () => {
+    SFX.playClick();
+    G.lang = G.lang === 'en' ? 'de' : 'en';
+    try { localStorage.setItem('wc_lang', G.lang); } catch (e) { }
+    applyI18N();
+    refreshWorldList && refreshWorldList();
+  };
+  applyI18N();
   $('btn-singleplayer').onclick = () => { SFX.playClick(); refreshWorldList(); showScreen('world-select-screen'); };
   $('btn-world-back').onclick = () => { SFX.playClick(); showScreen('title-screen'); };
   $('btn-create-world').onclick = () => {
@@ -1545,7 +1572,7 @@ function setupMenus() {
     // internet mode: the room is ALSO reachable by code from other networks
     // via our relay server (guests join the same room over WebSockets)
     if (SIGNAL_URL) {
-      G.net.log('Internet-Modus aktiv — Raum über Code aus anderen Netzwerken beitretbar.');
+      G.net.log(T('net.internet_active'));
       G.net.connectWS(SIGNAL_URL);
     }
     // the room code is the ONE thing a guest needs — show it huge
@@ -1588,7 +1615,7 @@ function setupMenus() {
     // internet mode: the SAME code joins over the relay from other networks —
     // both transports run in parallel; the message dedup removes doubles
     if (SIGNAL_URL) {
-      G.net.log('Internet-Modus: verbinde Relay für Code ' + code + '...');
+      G.net.log(T('net.internet_connecting', { code }));
       G.net.connectWS(SIGNAL_URL);
     }
     if (G.state === 'title') {

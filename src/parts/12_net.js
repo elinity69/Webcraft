@@ -198,6 +198,9 @@ class Net {
     this.hostId = null;
     this.snapshotT = 0;
     this.posT = 0;
+    this._closing = false;      // a fresh Net must never inherit a quit flag
+    this._midSeq = 0;
+    this._seen = new Map();
   }
 
   log(msg, err) {
@@ -209,7 +212,12 @@ class Net {
   // ---------- transport: send to all connected peers ----------
   sendAll(obj) {
     this._midSeq = (this._midSeq || 0) + 1;
-    obj._mid = this._midSeq; // dedup id — a dual-transport (BC + WS) client receives every frame twice
+    // dedup id — MUST be scoped to the sender: a page reload restarts the
+    // counter at 1, and a receiver-side dedup keyed only on the number would
+    // then silently drop EVERY new message from that player (the "players
+    // stop seeing each other" bug). Sender id + counter is collision-free.
+    obj._mid = this.myId + '-' + this._midSeq;
+    obj._from = this.myId;
     const s = JSON.stringify(obj);
     this.bytesOut = (this.bytesOut || 0) + s.length; // F3 traffic meter
     if (this.bc) this.bc.postMessage({ ...obj, _from: this.myId });
@@ -257,7 +265,7 @@ class Net {
           rain: G.rain, thunder: G.thunder,
         };
         if (reply) reply(welcome);
-        Chat.add('§e' + obj.name + ' hat das Spiel betreten');
+        Chat.add(T('chat.joined', { name: obj.name }));
         // create remote player entity
         this.ensureRemotePlayer(obj.id, obj.name);
         break;
@@ -301,7 +309,7 @@ class Net {
         if (val) val.textContent = this.roomCode;
         this.log('Connected! World seed: ' + obj.seed);
         Chat.add('§aConnected to ' + obj.name + "'s world");
-        Chat.add('§7Modus: §f' + (G.gameMode || 'survival') + ' §7· Schwierigkeit: §f' + (G.difficulty || 'normal'));
+        Chat.add(T('chat.mode_line', { mode: (G.gameMode || 'survival'), diff: (G.difficulty || 'normal') }));
         break;
       }
       case 'pos': {
@@ -362,7 +370,7 @@ class Net {
           this.remotePlayers.delete(obj.id);
         }
         this.peers.delete(obj.id);
-        Chat.add('§e' + (obj.name || 'Ein Spieler') + ' hat das Spiel verlassen');
+        Chat.add(T('chat.left', { name: obj.name || 'Player' }));
         break;
       }
     }
@@ -442,13 +450,13 @@ class Net {
           this._disco.postMessage(m);
         } catch (e) { }
       }, 1500);
-      this.log('Hosting on BroadcastChannel (open the page in another tab to join)');
+      this.log(T('net.hosting'));
       // the HUD badge is ONLY shown inside menu overlays (showScreen) — never during gameplay
       const val = document.getElementById('mp-code-value');
       if (val) val.textContent = this.roomCode;
-      Chat.add('§aMultiplayer-Code: §f' + this.roomCode + ' §7— sichtbar im ESC-Menü');
+      Chat.add(T('net.mp_code_chat', { code: this.roomCode }));
     } else {
-      this.log('Suche nach Host im selben Browser...');
+      this.log(T('net.searching'));
       // instant discovery request instead of waiting for the next announce tick
       if (this._discoveryJoin) {
         setTimeout(() => { try { this.bc.postMessage({ t: 'discover', id: this.myId }); } catch (e) { } }, 120);
@@ -461,12 +469,12 @@ class Net {
           this.sendAll({ t: 'join', id: this.myId, name: this.myName });
         }, 1500);
       }
-      setTimeout(() => { if (!this.joined) this.log('Noch kein Host gefunden — Host-Tab geöffnet und Code korrekt?', true); }, 4000);
+      setTimeout(() => { if (!this.joined) this.log(T('net.no_host_yet'), true); }, 4000);
       // guest stuck on the search screen: send them back with a clear message
       setTimeout(() => {
         if (!this.joined && G.state === 'title') {
           showScreen('multiplayer-screen');
-          Chat.add('§cKein Host gefunden — läuft das Host-Spiel im selben Browser, oder stimmt der Code?');
+          Chat.add(T('net.no_host_title'));
         }
       }, 8000);
     }
@@ -492,13 +500,13 @@ class Net {
         try { this.bc = new BroadcastChannel('webcraft-' + this.roomCode); } catch (e) { return; }
         this._bindChannel();
         this._triedHosts.add(this.roomCode);
-        this.log('Host gefunden (' + this.roomCode + ') — Beitritt...');
+        this.log(T('net.found', { code: this.roomCode }));
         this.sendAll({ t: 'join', id: this.myId, name: this.myName });
         // fallback: no welcome within 2.5 s → this announce was stale; go back
         // to the discovery channel and keep searching
         setTimeout(() => {
           if (!this.joined && G.net === this && this.mode === 'bc-join') {
-            this.log('Host antwortet nicht — Suche läuft weiter...');
+            this.log(T('net.not_answering'));
             try { this.bc.close(); } catch (e) { }
             this.roomCode = 'LAN';
             this.bc = new BroadcastChannel('webcraft-LAN');
@@ -578,16 +586,18 @@ class Net {
   // ---------- WebSocket relay ----------
   connectWS(url) {
     try {
+      this._wsUrl = url;
       this.ws = new WebSocket(url);
       if (!this.bc) { this.mode = 'ws'; this.isHostOrSingle = !this._wsJoinedAsClient; }
       this.ws.onopen = () => {
-        this.log('Relay verbunden (Internet-Modus, Raum: ' + (this.roomCode || 'default') + ').');
+        this._wsBackoff = 0; // connection healthy — reset retry backoff
+        this.log(T('net.relay_connected', { room: (this.roomCode || 'default') }));
         this.ws.send(JSON.stringify({ t: 'join-room', room: 'webcraft-' + (this.roomCode || 'default'), id: this.myId }));
         // hardening: OUR relay confirms with room-joined — anything else is a
         // foreign service on that URL (wrong Render service name)
         setTimeout(() => {
           if (this.ws && this.ws.readyState === 1 && !this._roomJoined) {
-            this.log('§cRelay-Antwort unerwartet — das ist NICHT unser Relay-Server. Render-Service-Name/URL prüfen!', true);
+            this.log(T('net.relay_unexpected'), true);
           }
         }, 3000);
         // coded join over the relay: request membership immediately (no wait)
@@ -596,13 +606,31 @@ class Net {
       this.ws.onmessage = (ev) => {
         try {
           const obj = JSON.parse(ev.data);
-          if (obj.t === 'room-joined') { this._roomJoined = true; this.log('Relay-Raum betreten — wartet auf Spieler...'); return; }
+          if (obj.t === 'room-joined') { this._roomJoined = true; this.log(T('net.relay_room')); return; }
           this.onMessage(obj, (o) => { try { this.ws.send(JSON.stringify({ ...o, _to: obj.id })); } catch (e) { } });
         } catch (e) { }
       };
-      this.ws.onclose = () => this.log('Relay disconnected', true);
-      this.ws.onerror = () => this.log('Relay error — check the URL', true);
+      this.ws.onclose = () => {
+        this.log(T('net.relay_disconnected'), true);
+        this.scheduleWsReconnect();
+      };
+      this.ws.onerror = () => this.log(T('net.relay_error'), true);
     } catch (e) { this.log('WS error: ' + e.message, true); }
+  }
+
+  // exponential-backoff reconnect for the relay WebSocket — Render free
+  // instances spin down and rotate; a dropped socket must heal itself
+  scheduleWsReconnect() {
+    if (this._closing) return;                       // explicit quit → stay down
+    const now = performance.now();
+    if (now - (this._lastWsTry || 0) < 800) return;  // debounce double-fires
+    this._lastWsTry = now;
+    clearTimeout(this._wsReconnectT);
+    this._wsReconnectT = setTimeout(() => {
+      if (this._closing || this.mode === null) return;
+      this.log(T('net.relay_retry'));
+      this.connectWS(this._wsUrl);
+    }, 1200);
   }
 
   // ---------- per-tick sync ----------
@@ -644,7 +672,7 @@ class Net {
           if (i >= 0) G.entities.splice(i, 1);
           this.remotePlayers.delete(rid);
           this.peers.delete(rid);
-          Chat.add('§e' + (e.nameTag || 'Ein Spieler') + ' hat das Spiel verlassen');
+          Chat.add(T('chat.left', { name: e.nameTag || 'Player' }));
           continue;
         }
         if (e.dead) { e.deathTime++; continue; } // tip the fallen model over
@@ -671,11 +699,13 @@ class Net {
   }
 
   shutdown() {
+    this._closing = true; // stop the WS reconnect loop — an explicit quit stays down
     const badge = document.getElementById('mp-code-badge');
     if (badge) badge.style.display = 'none';
     this.sendAll({ t: 'left', id: this.myId, name: this.myName });
     clearInterval(this._announce);
     clearInterval(this._joinRetry);
+    clearTimeout(this._wsReconnectT);
     try { this._disco && this._disco.close(); } catch (e) { }
     try { this.bc && this.bc.close(); } catch (e) { }
     try { this.dc && this.dc.close(); } catch (e) { }
