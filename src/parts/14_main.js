@@ -719,6 +719,8 @@ const SaveSystem = {
       localStorage.setItem(this.keyFor(G.worldName), JSON.stringify(data));
       const names = this.list();
       if (!names.includes(G.worldName)) { names.push(G.worldName); localStorage.setItem('webcraft_worlds', JSON.stringify(names)); }
+      // track the last played world — the multiplayer host re-opens it
+      try { localStorage.setItem('wc_lastworld', G.worldName); } catch (e) { }
     } catch (e) {
       Chat.add('§cSave failed: ' + e.message);
     }
@@ -1586,9 +1588,18 @@ function setupMenus() {
     Chat.add('§aMultiplayer-Code: §f' + code);
     if (!$('new-world-name').value) $('new-world-name').value = 'LAN World';
     const name = $('new-world-name').value.trim() || 'LAN World';
-    // host needs a world: reuse current or create — with the mode/difficulty
-    // chosen in the multiplayer screen (guests adopt both via welcome)
-    if (G.state === 'title') newWorld(name, $('new-world-seed').value, $('mp-host-mode').value, $('mp-host-difficulty').value);
+    // host needs a world: reuse current, or re-open the LAST PLAYED world
+    // (persisted across browser restarts) so friends continue the same world,
+    // or create a fresh one on first ever launch
+    if (G.state === 'title') {
+      const last = (() => { try { return localStorage.getItem('wc_lastworld'); } catch (e) { return null; } })();
+      if (last && SaveSystem.list().includes(last)) {
+        loadWorld(last);
+        Chat.add('§aWelt §f' + last + ' §ageladen — weiter geht\'s!');
+      } else {
+        newWorld(name, $('new-world-seed').value, $('mp-host-mode').value, $('mp-host-difficulty').value);
+      }
+    }
   };
   // "Im selben Browser beitreten": no code needed — listen on the shared LAN
   // discovery channel and hop onto whatever host announces itself there
