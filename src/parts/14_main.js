@@ -72,7 +72,7 @@ function setupInput() {
             if (s.count <= 0) p.slots[p.held] = null;
             const dir = fwdFromYawPitch(p.yaw, p.pitch, [0, 0, 0]);
             const ent = dropItem(p.x + dir[0] * .5, p.y + 1.3, p.z + dir[2] * .5, ITEMS[drop.id].key, drop.count, drop.dur, drop.ench);
-            if (ent) { ent.vx = dir[0] * 6; ent.vy = dir[1] * 6 + 1.5; ent.vz = dir[2] * 6; ent.age = -30; }
+            if (ent) { ent.vx = dir[0] * .3; ent.vy = dir[1] * .3 + .12; ent.vz = dir[2] * .3; ent.age = -12; }
             UI.refreshHotbar();
           }
           break;
@@ -888,8 +888,8 @@ function updatePlayerCompass() {
   const barY = 14;
   ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
   ctx.fillRect(0, barY, W, 10);
-  const DOT = 18;                         // DOT_SIZE 9 in 2× HUD-Skalierung
-  const dotTop = 10;                      // ragt 4px über/unter den schmalen Balken (MC-Look)
+  const DOT = 8;                          // Dot passt IN den 10px-Balken (User-Feedback)
+  const dotTop = barY + 1;                // vertikal zentriert im Balken
   const screenMiddle = Math.ceil((W - DOT) / 2);
   const VISIBLE_DEGREE_RANGE = 60;
   const dotLeftFor = (angleDeg) => screenMiddle + Math.floor(angleDeg * (W - DOT) / 2 / VISIBLE_DEGREE_RANGE);
@@ -914,11 +914,11 @@ function updatePlayerCompass() {
     if (pitchAngle > 0.52) { // ≈ ±30° — deutlich über/unter dem Horizont
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#000';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       const ax = dotLeft + DOT / 2, up = dy > 0; // PitchDirection.UP = target above the camera horizon
-      if (up) { ctx.moveTo(ax, 2); ctx.lineTo(ax - 7, 10); ctx.lineTo(ax + 7, 10); }
-      else { ctx.moveTo(ax, 34); ctx.lineTo(ax - 7, 26); ctx.lineTo(ax + 7, 26); }
+      if (up) { ctx.moveTo(ax, 3); ctx.lineTo(ax - 4, barY - 1); ctx.lineTo(ax + 4, barY - 1); }
+      else { ctx.moveTo(ax, 33); ctx.lineTo(ax - 4, barY + 11); ctx.lineTo(ax + 4, barY + 11); }
       ctx.closePath(); ctx.fill(); ctx.stroke();
     }
   }
