@@ -314,6 +314,23 @@ class Net {
       }
       case 'pos': {
         if (obj.id === this.myId) break;
+        // handshake-healing (MC server behavior): receiving player data from
+        // an UNKNOWN player means the 'join' was lost (relay rotation, connect
+        // race, dropped socket) — the host re-sends the welcome immediately
+        // instead of leaving the other side invisible forever
+        if (this.isHostOrSingle && !this.peers.has(obj.id)) {
+          this.peers.set(obj.id, { name: obj.name, send: reply ? (s) => reply(s) : null, lastSeen: performance.now(), bcReply: reply });
+          const welcome = {
+            t: 'welcome', to: obj.id, id: this.myId, name: this.myName,
+            seed: G.seed, time: G.world.time, mode: G.gameMode, difficulty: G.difficulty || 'normal',
+            edits: [...G.world.edits.entries()],
+            tes: this.serializeTEs(),
+            rain: G.rain, thunder: G.thunder,
+          };
+          if (reply) reply(welcome);
+          Chat.add(T('chat.joined', { name: obj.name }));
+          this.ensureRemotePlayer(obj.id, obj.name);
+        }
         const ent = this.ensureRemotePlayer(obj.id, obj.name);
         if (ent) {
           ent.dead = !!obj.d; // MC: the remote model tips over when the player dies
@@ -586,7 +603,10 @@ class Net {
   // ---------- WebSocket relay ----------
   connectWS(url) {
     try {
+      if (!url || url === 'undefined') { this.log('Relay-URL ungültig — Internet-Modus übersprungen.', true); return; }
       this._wsUrl = url;
+      this._closing = false;      // a fresh connect cancels a quit flag
+      this._roomJoined = false;   // the room-joined confirmation must be re-earned
       this.ws = new WebSocket(url);
       if (!this.bc) { this.mode = 'ws'; this.isHostOrSingle = !this._wsJoinedAsClient; }
       this.ws.onopen = () => {
@@ -622,6 +642,7 @@ class Net {
   // instances spin down and rotate; a dropped socket must heal itself
   scheduleWsReconnect() {
     if (this._closing) return;                       // explicit quit → stay down
+    if (!this._wsUrl) return;                        // never connected with a valid URL — no loop on 'undefined'
     const now = performance.now();
     if (now - (this._lastWsTry || 0) < 800) return;  // debounce double-fires
     this._lastWsTry = now;
