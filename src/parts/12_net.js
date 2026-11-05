@@ -332,6 +332,10 @@ class Net {
           this.ensureRemotePlayer(obj.id, obj.name);
         }
         const ent = this.ensureRemotePlayer(obj.id, obj.name);
+        // forensic audit fix: a dead avatar gets spliced from G.entities by
+        // the entity loop (deathTime > 20) but STAYS in remotePlayers —
+        // re-attach it here so the avatar can never go invisible
+        if (ent && !G.entities.includes(ent)) G.entities.push(ent);
         if (ent) {
           ent.dead = !!obj.d; // MC: the remote model tips over when the player dies
           if (!ent.dead) ent.deathTime = 0;

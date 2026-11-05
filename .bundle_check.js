@@ -3850,15 +3850,17 @@ const Mesher = {
           for (const [su, sv] of cornerUVs) {
             const side1 = gridO[1 + su][1], side2 = gridO[1][1 + sv], corn = gridO[1 + su][1 + sv];
             const ao = (side1 && side2) ? 0 : 3 - (side1 + side2 + corn);
-            corners.push(AO_MULT[ao] * fs);
-            let sSum = 0, bSum = 0;
+            corners.push(fs); // AO removed — no dark corners under blocks
+            let sSum = 0, bSum = 0, cnt = 0;
             for (const [ou, ov] of [[0, 0], [su, 0], [0, sv], [su, sv]]) {
+              if (gridO[1 + ou][1 + ov]) continue; // opaque cells do not darken the sample (no shadow under blocks)
               const packed = gridL[1 + ou][1 + ov];
               sSum += ((packed / 16) | 0) / 15;
               bSum += (packed % 16) / 15;
+              cnt++;
             }
-            skyArr.push(sSum / 4);
-            blkArr.push(bSum / 4);
+            skyArr.push(cnt ? sSum / cnt : 0);
+            blkArr.push(cnt ? bSum / cnt : 0);
           }
           this.emitFace(mesh, x, y, z, d, e0, h0, e1, h1, tile, skyArr, blkArr, corners, 0);
         }
@@ -10727,6 +10729,10 @@ class Net {
           this.ensureRemotePlayer(obj.id, obj.name);
         }
         const ent = this.ensureRemotePlayer(obj.id, obj.name);
+        // forensic audit fix: a dead avatar gets spliced from G.entities by
+        // the entity loop (deathTime > 20) but STAYS in remotePlayers —
+        // re-attach it here so the avatar can never go invisible
+        if (ent && !G.entities.includes(ent)) G.entities.push(ent);
         if (ent) {
           ent.dead = !!obj.d; // MC: the remote model tips over when the player dies
           if (!ent.dead) ent.deathTime = 0;
