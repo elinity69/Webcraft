@@ -44,7 +44,7 @@ wss.on('connection', (ws) => {
     if (msg.t === 'join-room' && msg.room) {
       const room = String(msg.room).slice(0, 64);
       if (ws.room && rooms.get(ws.room)) rooms.get(ws.room).delete(ws);
-      ws.room = room; ws.id = String(msg.id || '').slice(0, 32);
+      ws.room = room; ws.id = String(msg.id || '').slice(0, 32); ws.name = String(msg.name || '').slice(0, 24);
       if (!rooms.has(room)) rooms.set(room, new Map());
       rooms.get(room).set(ws, { id: ws.id });
       try { ws.send(JSON.stringify({ t: 'room-joined', room })); } catch (e) { }
@@ -58,9 +58,13 @@ wss.on('connection', (ws) => {
     }
   });
   ws.on('close', () => {
+    // MC server behavior: on player disconnect, broadcast the leave to the
+    // room so the others despawn the avatar instantly
     if (ws.room && rooms.get(ws.room)) {
-      rooms.get(ws.room).delete(ws);
-      if (rooms.get(ws.room).size === 0) rooms.delete(ws.room);
+      const room = rooms.get(ws.room);
+      room.delete(ws);
+      if (room.size === 0) rooms.delete(ws.room);
+      else for (const [peer] of room) { try { peer.send(JSON.stringify({ t: 'left', id: ws.id || '', name: ws.name || '' })); } catch (e) { } }
     }
   });
   ws.on('error', () => { });

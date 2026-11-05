@@ -10775,6 +10775,8 @@ class Net {
       case 'te': this.applyTE(obj.k, obj.te); break;
       case 'left': {
         const e = this.remotePlayers?.get(obj.id);
+        const peer = this.peers.get(obj.id);
+        if (!e && !peer) break; // duplicate left (client shutdown + relay close) → chat once only
         if (e) {
           e.dead = true;
           const i = G.entities.indexOf(e);
@@ -10782,7 +10784,7 @@ class Net {
           this.remotePlayers.delete(obj.id);
         }
         this.peers.delete(obj.id);
-        Chat.add(T('chat.left', { name: obj.name || 'Player' }));
+        Chat.add(T('chat.left', { name: obj.name || e?.nameTag || 'Player' }));
         break;
       }
     }
@@ -11007,7 +11009,7 @@ class Net {
       this.ws.onopen = () => {
         this._wsBackoff = 0; // connection healthy — reset retry backoff
         this.log(T('net.relay_connected', { room: (this.roomCode || 'default') }));
-        this.ws.send(JSON.stringify({ t: 'join-room', room: 'webcraft-' + (this.roomCode || 'default'), id: this.myId }));
+        this.ws.send(JSON.stringify({ t: 'join-room', room: 'webcraft-' + (this.roomCode || 'default'), id: this.myId, name: this.myName }));
         // hardening: OUR relay confirms with room-joined — anything else is a
         // foreign service on that URL (wrong Render service name)
         setTimeout(() => {
@@ -11060,9 +11062,10 @@ class Net {
       if (this.isHostOrSingle) this.sendAll({ t: 'time', time: G.world.time, dim: G.dimension });
     }
     this.posT--;
-    // also send from the multiplayer menu — the world (and gravity) keeps
-    // running there, so the remote side must keep seeing us move
-    if (this.posT <= 0 && G.player && (G.state === 'playing' || G.state === 'paused' || G.state === 'dead')) {
+    // MC servers keep sending position data in EVERY in-game state — playing,
+    // menus, containers, death screen. The old gate skipped 'container' and
+    // 'dead', which made the sender invisible to the partner after 5 s.
+    if (this.posT <= 0 && G.player && G.state !== 'title' && G.state !== 'loading') {
       this.posT = 1; // 20 Hz — Minecraft sends 20 positions/s
       const p = G.player;
       this.sendAll({
@@ -11082,7 +11085,7 @@ class Net {
       for (const [rid, e] of this.remotePlayers) {
         // stale watchdog: a page that closed without delivering its 'left'
         // message (unload quirk) despawns after 5 s of silence
-        if (!e.dead && e.lastSeen && nowMs - e.lastSeen > 5000) {
+        if (!e.dead && e.lastSeen && nowMs - e.lastSeen > 15000) {
           e.dead = true;
           const i = G.entities.indexOf(e);
           if (i >= 0) G.entities.splice(i, 1);
