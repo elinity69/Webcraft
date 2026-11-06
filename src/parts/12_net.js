@@ -345,11 +345,27 @@ class Net {
           // positions and slide between them at a fixed delay. A per-tick
           // lerp toward the target instead leaves an exponential tail (the
           // avatar "ice-skates" after the sender stopped) and steps at 10 Hz.
-          ent.sx = ent.tx !== undefined ? ent.tx : obj.x;
-          ent.sy = ent.ty !== undefined ? ent.ty : obj.y;
-          ent.sz = ent.tz !== undefined ? ent.tz : obj.z;
-          ent.tx = obj.x; ent.ty = obj.y; ent.tz = obj.z;
-          ent.snapT = performance.now();
+          // A >8-block delta is the MC teleport threshold (ServerEntity sends
+          // an EntityPositionSync packet) — snap instantly instead of gliding.
+          const jump = Math.hypot(
+            obj.x - (ent.tx !== undefined ? ent.tx : obj.x),
+            obj.y - (ent.ty !== undefined ? ent.ty : obj.y),
+            obj.z - (ent.tz !== undefined ? ent.tz : obj.z));
+          if (jump > 8) {
+            ent.x = obj.x; ent.y = obj.y; ent.z = obj.z;
+            ent.sx = ent.tx = obj.x; ent.sy = ent.ty = obj.y; ent.sz = ent.tz = obj.z;
+            ent.snapT = performance.now();
+          } else {
+            // remember the real snapshot interval: background tabs throttle to
+            // ~1 snapshot/s, and sliding the old 50 ms window over a 1 s gap
+            // made the avatar teleport — glide over the observed gap instead
+            ent.prevSnapGap = ent.snapT ? Math.min(1000, Math.max(50, performance.now() - ent.snapT)) : 50;
+            ent.sx = ent.tx !== undefined ? ent.tx : obj.x;
+            ent.sy = ent.ty !== undefined ? ent.ty : obj.y;
+            ent.sz = ent.tz !== undefined ? ent.tz : obj.z;
+            ent.tx = obj.x; ent.ty = obj.y; ent.tz = obj.z;
+            ent.snapT = performance.now();
+          }
           // yaw along the shortest arc between snapshots. +π: the humanoid
           // model's front is (sin(yaw), cos(yaw)) — the PLAYER's view direction
           // is (-sin(yaw), -cos(yaw)); without the flip the avatar faces
@@ -711,7 +727,11 @@ class Net {
           continue;
         }
         if (e.dead) { e.deathTime++; continue; } // tip the fallen model over
-        const a = Math.min(1, (nowMs - (e.snapT || nowMs)) / 50); // 50 ms = one 20 Hz snapshot interval
+        // adaptive snapshot window: 50 ms at the regular 20 Hz send rate, but
+        // stretched up to 1 s when the sender's tab is throttled — the avatar
+        // glides over the real gap instead of teleporting in 1 s steps
+        const interval = Math.min(1000, Math.max(50, e.prevSnapGap || 50));
+        const a = Math.min(1, (nowMs - (e.snapT || nowMs)) / interval);
         const sx = e.sx ?? e.tx ?? e.x, sy = e.sy ?? e.ty ?? e.y, sz = e.sz ?? e.tz ?? e.z;
         e.x = sx + ((e.tx ?? sx) - sx) * a;
         e.y = sy + ((e.ty ?? sy) - sy) * a;

@@ -150,7 +150,7 @@ function spawnFlame(x, y, z) {
 
 // ---------- Mob definitions (1:1 Minecraft per-tick speeds & anatomy) ----------
 const MOB_DEFS = {
-  zombie:   { w: .6, h: 1.9, health: 20, speed: .115, hostile: true, damage: 3, xp: 5, burnsInDay: true, model: 'humanoid', colors: { skin: [0.28, 0.48, 0.25], shirt: [0.20, 0.56, 0.64], pants: [0.28, 0.24, 0.52], hair: [0.18, 0.33, 0.16] }, drops: [['rotten_flesh', 0, 2]], sound: 'zombie' },
+  zombie:   { w: .6, h: 1.9, health: 20, speed: .115, hostile: true, damage: 3, xp: 5, burnsInDay: true, model: 'humanoid', followRange: 35, colors: { skin: [0.28, 0.48, 0.25], shirt: [0.20, 0.56, 0.64], pants: [0.28, 0.24, 0.52], hair: [0.18, 0.33, 0.16] }, drops: [['rotten_flesh', 0, 2]], sound: 'zombie' },
   skeleton: { w: .6, h: 1.95, health: 20, speed: .125, hostile: true, damage: 2, xp: 5, burnsInDay: true, ranged: true, model: 'humanoid', colors: { skin: [0.82, 0.82, 0.78], shirt: [0.76, 0.76, 0.72], pants: [0.72, 0.72, 0.68] }, drops: [['bone', 0, 2], ['arrow', 0, 2]], sound: 'skeleton' },
   creeper:  { w: .6, h: 1.7, health: 20, speed: .115, hostile: true, damage: 0, xp: 5, creeper: true, model: 'creeper', colors: { body: [0.36, 0.74, 0.30], dark: [0.22, 0.52, 0.18] }, drops: [['gunpowder', 0, 2]], sound: 'creeper' },
   spider:   { w: 1.3, h: .85, health: 16, speed: .15, hostile: true, damage: 2, xp: 5, neutralInLight: true, model: 'spider', colors: { body: [0.22, 0.18, 0.20], head: [0.26, 0.21, 0.23] }, drops: [['string', 0, 2], ['spider_eye', 0, 1]], sound: null },
@@ -159,7 +159,7 @@ const MOB_DEFS = {
   sheep:    { w: .9, h: 1.25, health: 8, speed: .095, passive: true, xp: 2, breedItem: 'wheat_item', shearable: true, model: 'quad', colors: { body: [0.92, 0.92, 0.90], head: [0.86, 0.76, 0.66], legs: [0.78, 0.68, 0.58] }, drops: [['mutton', 1, 2]], sound: 'sheep' },
   chicken:  { w: .5, h: .75, health: 4, speed: .095, passive: true, xp: 1, slowFall: true, breedItem: 'wheat_seeds', laysEggs: true, model: 'chicken', colors: { body: [0.96, 0.96, 0.94], head: [0.96, 0.96, 0.94], beak: [0.95, 0.68, 0.18], legs: [0.92, 0.68, 0.18] }, drops: [['chicken', 1, 1], ['feather', 0, 2]], sound: 'chicken' },
   ghast:    { w: 4, h: 4, health: 10, speed: .08, hostile: true, flies: true, xp: 5, shootsFireball: true, model: 'ghast', colors: { body: [0.92, 0.92, 0.92] }, drops: [['gunpowder', 0, 2]], sound: null },
-  enderman: { w: .6, h: 2.9, health: 40, speed: .14, hostile: true, damage: 7, xp: 5, avoidsWater: true, model: 'humanoid', colors: { skin: [0.07, 0.07, 0.09], shirt: [0.06, 0.06, 0.08], pants: [0.05, 0.05, 0.07] }, drops: [['ender_pearl', 0, 1]], sound: 'enderman' },
+  enderman: { w: .6, h: 2.9, health: 40, speed: .14, hostile: true, damage: 7, xp: 5, avoidsWater: true, model: 'humanoid', followRange: 64, colors: { skin: [0.07, 0.07, 0.09], shirt: [0.06, 0.06, 0.08], pants: [0.05, 0.05, 0.07] }, drops: [['ender_pearl', 0, 1]], sound: 'enderman' },
   dragon:   { w: 4, h: 3, health: 200, speed: .35, hostile: true, damage: 10, xp: 500, flies: true, dragon: true, model: 'dragon', colors: { body: [0.12, 0.10, 0.16], wing: [0.22, 0.16, 0.28] }, drops: [], sound: 'dragon' },
   item:     { w: .25, h: .25, gravity: true },
   xp:       { w: .25, h: .25, gravity: true },
@@ -239,7 +239,46 @@ class Entity {
   }
 
   setVelocityFromKnockback(kx, kz, strength) {
-    this.vx += kx * strength; this.vz += kz * strength; this.vy = Math.max(this.vy, 0.36);
+    // 1:1 LivingEntity.knockback: vx = vx/2 + awayDir*power, vy = onGround ? min(0.4, vy/2+0.4)
+    // (kx/kz normalized AWAY from the attacker — REA subtracts the attacker-facing vector)
+    this.vx = this.vx / 2 + kx * strength;
+    this.vz = this.vz / 2 + kz * strength;
+    if (this.onGround) this.vy = Math.min(.4, this.vy / 2 + .4);
+  }
+
+  // 1:1 LivingEntity.hasLineOfSight (REA): ray from eye to the target's eye, at most
+  // 128 blocks, clipped against COLLIDER shapes (ClipContext.Block.COLLIDER,
+  // ClipContext.Fluid.NONE) — every block with a collision shape blocks the ray
+  // (glass/leaves included, MC wiki); fluids and plants don't. Results are cached
+  // per tick exactly like Mob sensing (seen/unseen reuse within one game tick).
+  hasLineOfSight(target) {
+    if (this._losTick === this.age && this._losTarget === target) return this._losCache;
+    this._losTick = this.age; this._losTarget = target;
+    const ex = this.x, ey = this.y + this.h * .89, ez = this.z;
+    const tx = target.x, ty = target.y + (target.eye !== undefined ? target.eye : target.h * .85), tz = target.z;
+    let dx = tx - ex, dy = ty - ey, dz = tz - ez;
+    if (dx * dx + dy * dy + dz * dz > 128 * 128) { this._losCache = false; return false; }
+    // Amanatides & Woo voxel traversal — first solid voxel between eye and eye blocks sight
+    let cx = Math.floor(ex), cy = Math.floor(ey), cz = Math.floor(ez);
+    const stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+    const tDx = dx !== 0 ? Math.abs(1 / dx) : Infinity;
+    const tDy = dy !== 0 ? Math.abs(1 / dy) : Infinity;
+    const tDz = dz !== 0 ? Math.abs(1 / dz) : Infinity;
+    let tMaxX = dx !== 0 ? (dx > 0 ? (cx + 1 - ex) : (ex - cx)) * tDx : Infinity;
+    let tMaxY = dy !== 0 ? (dy > 0 ? (cy + 1 - ey) : (ey - cy)) * tDy : Infinity;
+    let tMaxZ = dz !== 0 ? (dz > 0 ? (cz + 1 - ez) : (ez - cz)) * tDz : Infinity;
+    let blocked = false;
+    while (true) {
+      let t;
+      if (tMaxX <= tMaxY && tMaxX <= tMaxZ) { cx += stepX; t = tMaxX; tMaxX += tDx; }
+      else if (tMaxY <= tMaxZ) { cy += stepY; t = tMaxY; tMaxY += tDy; }
+      else { cz += stepZ; t = tMaxZ; tMaxZ += tDz; }
+      if (t > 1) break;
+      const id = G.world.getBlock(cx, cy, cz);
+      if (id > 0 && BLOCKS[id].solid) { blocked = true; break; }
+    }
+    this._losCache = !blocked;
+    return this._losCache;
   }
 
   damage(amount, attacker, cause) {
@@ -250,7 +289,7 @@ class Entity {
     if (attacker && (attacker.isPlayer || attacker === G.player)) {
       const dx = this.x - attacker.x, dz = this.z - attacker.z;
       const l = Math.hypot(dx, dz) || 1;
-      this.setVelocityFromKnockback(dx / l, dz / l, .35);
+      this.setVelocityFromKnockback(dx / l, dz / l, .4); // REA hurt knockback power 0.4
       this.ai.target = attacker;
       this.ai.panicT = 100;
       // sprint knockback
@@ -486,6 +525,12 @@ class Entity {
       if (p && !p.dead && this.owner !== p && this.x > p.x - .4 && this.x < p.x + .4 && this.y > p.y && this.y < p.y + 1.9 && this.z > p.z - .4 && this.z < p.z + .4) {
         const ad = mobDmg(Math.max(1, Math.round(speed)));
         if (ad > 0) p.damage(ad, 'arrow:' + this.type);
+        // 1:1 LivingEntity.hurt projectile knockback: 0.4 along the projectile's
+        // horizontal travel direction (calculateHorizontalHurtKnockbackDirection)
+        const kl = Math.hypot(this.vx, this.vz) || 1;
+        p.vx = p.vx / 2 - this.vx / kl * .4;
+        p.vz = p.vz / 2 - this.vz / kl * .4;
+        if (p.onGround) p.vy = Math.min(.4, p.vy / 2 + .4);
         this.dead = true;
         return;
       }
@@ -637,7 +682,26 @@ class Entity {
     if (d.dragon) { this.tickDragon(p); this.physics(0); return; }
     if (d.wither) { this.tickWither(p); return; }
 
-    if (d.hostile && p && !p.dead && G.gameMode !== 'creative' && G.gameMode !== 'spectator' && distP < (d.ranged ? 18 : 16)) {
+    // ---------- Targeting 1:1 REA TargetGoal mechanics ----------
+    // Attributes: Zombie.createAttributes FOLLOW_RANGE 35.0, EnderMan 64.0, Mob
+    // default 16.0. NearestAttackableTargetGoal.canUse: randomInterval 10 — a
+    // 1-in-10 scan chance per tick, mustSee = line of sight required to acquire.
+    // TargetGoal.canContinueToUse: the target is dropped once the distance
+    // exceeds the follow range, or when it stayed unseen for 60 ticks
+    // (unseenMemoryTicks) — that is how a zombie keeps chasing briefly around
+    // a corner but forgets you for real.
+    const targetable = d.hostile && p && !p.dead && G.gameMode !== 'creative' && G.gameMode !== 'spectator';
+    if (targetable) {
+      const fr = d.followRange || 16; // REA Mob.createMobAttributes default
+      if (!this._target) {
+        if (distP <= fr && rand() < .1 && this.hasLineOfSight(p)) { this._target = p; this._unseen = 0; }
+      } else {
+        if (this.hasLineOfSight(p)) this._unseen = 0; else this._unseen++;
+        if (distP > fr || this._unseen > 60) { this._target = null; this._unseen = 0; }
+      }
+    } else { this._target = null; this._unseen = 0; }
+
+    if (this._target) {
       // chase
       const dx = p.x - this.x, dz = p.z - this.z;
       const l = Math.hypot(dx, dz) || 1;
@@ -646,12 +710,14 @@ class Entity {
         // passive in daylight
         [moveX, moveZ] = this.wander();
       } else if (d.ranged) {
-        // skeleton keeps distance & shoots
+        // skeleton keeps distance & shoots — REA RangedBowAttackGoal(mob, 1.0, 20, 15.0F)
         if (distP < 6) { moveX = -dx / l; moveZ = -dz / l; }
         else if (distP > 10) { moveX = dx / l; moveZ = dz / l; }
         else { moveX = -dz / l * .4; moveZ = dx / l * .4; }
-        if (this.attackCD <= 0 && distP < 15) {
-          this.attackCD = 40;
+        // REA BowAttackGoal.tick: the arrow only leaves the bow with a clear
+        // shot (hasLineOfSight) and one attack every 20 ticks
+        if (this.attackCD <= 0 && distP < 15 && this.hasLineOfSight(p)) {
+          this.attackCD = 20;
           const arrow = spawnEntity('arrow', this.x, this.y + this.h * .8, this.z, { owner: this });
           const tx = p.x + p.vx * 8 - this.x, ty = (p.y + 1.2) - (this.y + this.h * .8), tz = p.z + p.vz * 8 - this.z;
           const tl = Math.hypot(tx, ty, tz) || 1;
@@ -699,13 +765,26 @@ class Entity {
         return;
       } else {
         moveX = dx / l; moveZ = dz / l;
-        // melee attack
-        if (distP < 1.8 && this.attackCD <= 0) {
+        // melee attack — 1:1 Mob.isWithinMeleeAttackRange: the attack bounding
+        // box (mob hitbox inflated by DEFAULT_ATTACK_REACH = sqrt(2.04)-0.6
+        // horizontally) must intersect the target hitbox, plus MeleeAttackGoal
+        // requires hasLineOfSight before every swing. Attack interval 20 ticks.
+        const REACH = Math.sqrt(2.04) - 0.6; // REA Mob.DEFAULT_ATTACK_REACH
+        const inReach = Math.abs(dx) < (this.w + p.w) / 2 + REACH
+          && Math.abs(dz) < (this.w + p.w) / 2 + REACH
+          && p.y < this.y + this.h && p.y + p.h > this.y; // vertical AABB overlap
+        if (inReach && this.attackCD <= 0 && this.hasLineOfSight(p)) {
           this.attackCD = 20;
           const md = mobDmg(d.damage || 2);
           if (md > 0) p.damage(md, 'mob:' + this.type);
-          const kb = .3;
-          p.vx += dx / l * kb * 4; p.vz += dz / l * kb * 4; p.vy = Math.max(p.vy, .3);
+          // 1:1 LivingEntity.knockback(0.4) (hurt path): halve the current
+          // velocity, push away from the attacker, vertical min(0.4, vy/2+0.4).
+          // The old +1.2 fling read like a teleport and had no REA counterpart.
+          const kx = this.x - p.x, kz = this.z - p.z; // toward the attacker (REA source position)
+          const kl = Math.hypot(kx, kz) || 1;
+          p.vx = p.vx / 2 - kx / kl * .4;
+          p.vz = p.vz / 2 - kz / kl * .4;
+          if (p.onGround) p.vy = Math.min(.4, p.vy / 2 + .4);
         }
       }
       wantJump = true;
@@ -714,7 +793,17 @@ class Entity {
       const dx = p.x - this.x, dz = p.z - this.z;
       const l = Math.hypot(dx, dz) || 1;
       moveX = dx / l; moveZ = dz / l; wantJump = true;
-      if (distP < 1.8 && this.attackCD <= 0) { this.attackCD = 20; const md = mobDmg(d.damage || 2); if (md > 0) p.damage(md, 'mob:' + this.type); }
+      // same 1:1 melee reach as the normal chase (Mob.isWithinMeleeAttackRange)
+      const REACH = Math.sqrt(2.04) - 0.6;
+      const inReach = Math.abs(dx) < (this.w + p.w) / 2 + REACH
+        && Math.abs(dz) < (this.w + p.w) / 2 + REACH
+        && p.y < this.y + this.h && p.y + p.h > this.y;
+      if (inReach && this.attackCD <= 0 && this.hasLineOfSight(p)) {
+        this.attackCD = 20; const md = mobDmg(d.damage || 2); if (md > 0) p.damage(md, 'mob:' + this.type);
+        const kx = this.x - p.x, kz = this.z - p.z; const kl = Math.hypot(kx, kz) || 1;
+        p.vx = p.vx / 2 - kx / kl * .4; p.vz = p.vz / 2 - kz / kl * .4;
+        if (p.onGround) p.vy = Math.min(.4, p.vy / 2 + .4);
+      }
     } else if (d.passive) {
       // panic when hurt
       if (this.ai.panicT > 0) {
