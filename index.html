@@ -11706,7 +11706,9 @@ class Net {
         break;
       }
       case 'welcome': {
-        if (obj.to !== this.myId && obj.to !== undefined) { /* broadcast welcome to all — ignore others */ }
+        // a welcome addressed to ANOTHER player (3+ player rooms, dual
+        // transport echoes) must not rebuild our world — adopt only OUR welcome
+        if (obj.to !== undefined && obj.to !== this.myId) break;
         this.hostId = obj.id;
         this.isHostOrSingle = false;
         this.joined = true;
@@ -11943,7 +11945,10 @@ class Net {
   _bindChannel() {
     this.bc.onmessage = (ev) => {
       const obj = ev.data;
-      const reply = (o) => { try { this.bc.postMessage({ ...o, _to: obj.id }); } catch (e) { } };
+      // peer.send() hands us JSON strings (sendAll stringifies for the WS/WebRTC
+      // transports). Spreading a string would explode it into character-indexed
+      // garbage on the channel — parse first, then target the envelope.
+      const reply = (o) => { try { this.bc.postMessage({ ...(typeof o === 'string' ? JSON.parse(o) : o), _to: obj.id }); } catch (e) { } };
       if (obj._to && obj._to !== this.myId && obj.t !== 'welcome') return;
       // discovery guest: a host announced itself — hop onto his private room
       // channel and start the join handshake. Prefer hosts that are IN-GAME
@@ -12068,7 +12073,9 @@ class Net {
         try {
           const obj = JSON.parse(ev.data);
           if (obj.t === 'room-joined') { this._roomJoined = true; this.log(T('net.relay_room')); return; }
-          this.onMessage(obj, (o) => { try { this.ws.send(JSON.stringify({ ...o, _to: obj.id })); } catch (e) { } });
+          // peer.send() hands JSON strings — parse before targeting, or the
+          // spread explodes the string into character-indexed garbage
+          this.onMessage(obj, (o) => { try { this.ws.send(JSON.stringify({ ...(typeof o === 'string' ? JSON.parse(o) : o), _to: obj.id })); } catch (e) { } });
         } catch (e) { }
       };
       this.ws.onclose = () => {

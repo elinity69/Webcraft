@@ -14,7 +14,7 @@ const server = http.createServer((req, res) => {
   // Friendly info page: people who open the relay URL directly land here —
   // point them to the actual game instead of showing bare status text.
   if (req.url === '/' || req.url.startsWith('/?') || req.url === '') {
-    const GAME = 'https://webcraft-qb1q.zai-ai.site';
+    const GAME = 'https://webcraft-cdqz.zai-ai.site';
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>WebCraft Relay</title>
