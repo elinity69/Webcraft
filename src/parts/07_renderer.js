@@ -31,14 +31,12 @@ out vec4 fragColor;
 void main(){
   vec4 tex = texture(uTex, vUV);
   if (tex.a < 0.08) discard;
-  float sky = vSky * uDayLight;
-  float l = max(sky, vBlock * 0.92);
-  l = 0.045 + 0.955 * l;
-  vec3 col = tex.rgb * l * vShade;
-  col = mix(col, col * vec3(1.16, 1.06, 0.86), clamp(vBlock - sky, 0.0, 1.0) * 0.55);
+  // FULLBRIGHT: no skylight, no blocklight, no face shading, no light curve —
+  // every face is uniformly bright. The world's light DATA still exists and
+  // drives gameplay (mob spawns, grass spread) — it just never darkens the view.
   float fog = clamp((vDist - uFogStart) / (uFogEnd - uFogStart), 0.0, 1.0);
   fog = fog * fog;
-  col = mix(col, uFogColor, fog);
+  vec3 col = mix(tex.rgb, uFogColor, fog);
   fragColor = vec4(col, tex.a * uAlpha);
 }`;
 
@@ -64,7 +62,9 @@ uniform vec3 uFogColor;
 uniform float uFogStart, uFogEnd;
 out vec4 fragColor;
 void main(){
-  vec3 col = vColor.rgb * (0.08 + 0.92 * uLight);
+  // FULLBRIGHT: entity/particle colors render at full brightness — the baked
+  // per-vertex light and the day-night uLight factor no longer darken anything
+  vec3 col = vColor.rgb;
   col = mix(col, vec3(0.9, 0.15, 0.1), uHurt * 0.6);
   float fog = clamp((vDist - uFogStart) / (uFogEnd - uFogStart), 0.0, 1.0);
   fog = fog * fog;

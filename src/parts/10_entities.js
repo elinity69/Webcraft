@@ -1176,10 +1176,9 @@ class Entity {
   }
 
   lightAt() {
-    const l = G.world.getLight(Math.floor(this.rx), Math.floor(this.ry + 1), Math.floor(this.rz));
-    const sky = (l >> 4) / 15, blk = (l & 15) / 15;
-    const dayBr = G.dimension === 1 ? 0.12 : (G.dimension === 2 ? 0.4 : dayBrightness());
-    return clamp(0.1 + 0.9 * Math.max(sky * dayBr, blk), 0.12, 1);
+    // FULLBRIGHT: entities never darken — the light DATA is only used for
+    // gameplay (mob spawns). Kept as a function so call sites stay stable.
+    return 1;
   }
 
   emitPart(verts, part, alpha, light, hurt, deathRot, bodyScale) {
@@ -1216,12 +1215,14 @@ class Entity {
       return [this.rx + wx, this.ry + ay, this.rz + wz];
     };
     const faces = [
+      // FULLBRIGHT: no directional face shading — every face renders at the
+      // part's own color (light is always 1)
       { n: 'top', pts: [[-hw, hh, -hd], [hw, hh, -hd], [hw, hh, hd], [-hw, hh, hd]], s: 1 },
-      { n: 'bottom', pts: [[-hw, -hh, hd], [hw, -hh, hd], [hw, -hh, -hd], [-hw, -hh, -hd]], s: .55 },
-      { n: 'north', pts: [[-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd]], s: .8 },
-      { n: 'south', pts: [[hw, -hh, hd], [-hw, -hh, hd], [-hw, hh, hd], [hw, hh, hd]], s: .8 },
-      { n: 'east', pts: [[hw, -hh, -hd], [hw, -hh, hd], [hw, hh, hd], [hw, hh, -hd]], s: .65 },
-      { n: 'west', pts: [[-hw, -hh, hd], [-hw, -hh, -hd], [-hw, hh, -hd], [-hw, hh, hd]], s: .65 },
+      { n: 'bottom', pts: [[-hw, -hh, hd], [hw, -hh, hd], [hw, -hh, -hd], [-hw, -hh, -hd]], s: 1 },
+      { n: 'north', pts: [[-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd]], s: 1 },
+      { n: 'south', pts: [[hw, -hh, hd], [-hw, -hh, hd], [-hw, hh, hd], [hw, hh, hd]], s: 1 },
+      { n: 'east', pts: [[hw, -hh, -hd], [hw, -hh, hd], [hw, hh, hd], [hw, hh, -hd]], s: 1 },
+      { n: 'west', pts: [[-hw, -hh, hd], [-hw, -hh, -hd], [-hw, hh, -hd], [-hw, hh, hd]], s: 1 },
     ];
     for (const f of faces) {
       const P = f.pts.map(p => tf(p[0], p[1], p[2]));
@@ -1387,6 +1388,15 @@ function villagerRestock(v) {
 const SpawnSystem = {
   timer: 0,
   tick() {
+    const p0 = G.player;
+    // 1:1 MC peaceful difficulty: hostile mobs are removed the SAME TICK they
+    // exist — this must run every tick, not inside the once-per-second spawn
+    // gate, or /summon'd and leftover hostiles linger for up to a full second
+    if (G.difficulty === 'peaceful' && p0) {
+      for (const e of G.entities) {
+        if (!e.dead && e.def && e.def.hostile && !e.def.noDespawn && !e.def.dragon) e.dead = true;
+      }
+    }
     if (--this.timer > 0) return;
     this.timer = 20;
     const p = G.player;
@@ -1398,17 +1408,9 @@ const SpawnSystem = {
       else if (e.def.passive) passives++;
     }
     const isNight = !isDaytime();
-    // MC: peaceful difficulty spawns NO hostile mobs and existing ones
-    // despawn instantly (that was a game-mode check before — a dead branch,
-    // since 'peaceful' is a difficulty, not a game mode)
-    if (G.difficulty === 'peaceful') {
-      for (const e of G.entities) {
-        if (!e.dead && e.def && e.def.hostile && !e.def.noDespawn) e.dead = true;
-      }
-    }
     // hostile spawn attempts — MC spreads spawns out (packs over time, most
     // attempts fail on light/space): 2 attempts per second-cycle, caps scaled
-    // by difficulty so Easy never floods the night
+    // by difficulty so Easy never floods the night. Peaceful never spawns.
     const hostileCap = isNight ? (G.difficulty === 'easy' ? 8 : G.difficulty === 'hard' ? 16 : 12) : 4;
     if (G.difficulty !== 'peaceful' && hostiles < hostileCap && G.dimension === 0) {
       for (let i = 0; i < 2; i++) this.trySpawn(p, true);
