@@ -642,6 +642,11 @@ class Player {
       SFX.playBreak(bl.material);
       return;
     }
+    // capture the block state BEFORE clearing — setBlock(x,y,z,0) resets the
+    // meta, and crops (wheat, nether wart) resolve their loot from the age
+    // meta: reading it afterwards returned 0, so mature wheat dropped only
+    // seeds (the REA loot table keys the wheat item on age:"7")
+    const cropMeta = w.getMeta(bx, by, bz);
     w.setBlock(bx, by, bz, 0);
     G.stats.mined++;
     SFX.playBreak(bl.material);
@@ -653,7 +658,7 @@ class Player {
       const tool = item ? ITEMS[item.id].tool : null;
       const ench = item && item.ench || {};
       const fortune = ench.fortune || 0;
-      const drops = resolveDrops(id, w.getMeta(bx, by, bz), tool, fortune);
+      const drops = resolveDrops(id, cropMeta, tool, fortune);
       for (const [key, count] of drops) dropItem(bx + .5, by + .3, bz + .5, key, count);
       // container contents drop
       const tek = bx + ',' + by + ',' + bz;

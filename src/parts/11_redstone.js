@@ -315,10 +315,13 @@ function explode(x, y, z, power) {
     if (bl.key === 'obsidian' || bl.key === 'crying_obsidian') continue;
     // water dampens
     if (world.getBlock(bx, by + 1, bz) === B.water) continue;
+    // capture the state BEFORE clearing — crops resolve their loot from the
+    // age meta (mature wheat drops wheat + seeds in the REA loot table)
+    const expMeta = world.getMeta(bx, by, bz);
     world.setBlock(bx, by, bz, 0, 0, { noUpdate: true });
     if (bl.fluid) world.setBlock(bx, by, bz, 0, 0, { noUpdate: true });
     if (chance(.28) && bl.drops !== null) {
-      const drops = resolveDrops(id, 0, null, 0);
+      const drops = resolveDrops(id, expMeta, null, 0);
       for (const [key, n] of drops) if (chance(.3)) dropItem(bx + .5, by + .5, bz + .5, key, n);
     }
     // chain reaction

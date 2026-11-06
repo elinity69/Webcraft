@@ -198,6 +198,9 @@ class Entity {
     this.renderParts = true; // every entity renders (items via drawItem, mobs via drawBoxes)
     this.onGround = false;
     this.age = 0;
+    // 1:1 ItemEntity: 0 = collectable now (block drops), 40 = player-thrown
+    // drops (LivingEntity.createItemStackToDrop), 32767 = never
+    this.pickupDelay = 0;
     this.gravity = !!def.gravity;
     this.hostile = !!def.hostile;
     this.itemEntity = type === 'item';
@@ -424,6 +427,9 @@ class Entity {
     this.vy *= 0.98;
     this.vx *= 0.98;
     this.vz *= 0.98;
+    // 1:1 ItemEntity.tick: the pickup delay counts down before anything can
+    // collect the stack (32767 = never)
+    if (this.pickupDelay > 0 && this.pickupDelay !== 32767) this.pickupDelay--;
     const inW = G.world.getBlock(Math.floor(this.x), Math.floor(this.y + .3), Math.floor(this.z)) === B.water;
     if (inW) { this.vy = Math.min(this.vy + 0.04, 0.1); this.fallDistance = 0; }
     this.vx *= .9; this.vz *= .9;
@@ -443,31 +449,17 @@ class Entity {
       }
     }
     if (this.age > 6000) { this.dead = true; return; }
-    // aggressive magnet + pickup: a sprinting player must collect a drop the
-    // moment he passes over it — no trailing behind
+    // 1:1 pickup — Player.touch query box: the player's bounding box inflated
+    // by (1.0, 0.5, 1.0) (Player.java), intersecting the item's 0.25 box, and
+    // ItemEntity.playerTouch only collects when pickupDelay == 0. Vanilla has
+    // NO magnetic attraction — the old 3.5-radius magnet pulled a freshly
+    // dropped stack straight back into the player.
     const p = G.player;
-    if (p && !p.dead && this.age > 2) {
-      const dx = p.x - this.x, dy = (p.y + .8) - this.y, dz = p.z - this.z;
-      const dh = Math.hypot(dx, dz);
-      // MC-AABB-style pickup: whenever the player is standing OVER the drop
-      // (horizontal contact), it is collected instantly — a spherical check
-      // against the body center alone misses it because of the height offset
-      if (dh < 0.8 && Math.abs(dy) < 1.3) {
-        const left = p.addItem(this.itemStack.id, this.itemStack.count, this.itemStack.dur, this.itemStack.ench);
-        if (left === 0) { this.dead = true; SFX.playPop(); return; }
-        else this.itemStack.count = left;
-      }
-      const d = Math.hypot(dx, dy, dz) || .001;
-      if (d < 3.5) {
-        // strong pull that outruns the friction (0.9 drag per tick)
-        this.vx += dx / d * .22; this.vy += dy / d * .22; this.vz += dz / d * .22;
-      }
-      if (d < 1.1) {
-        // final snap: fly straight at the player at up to 0.6 blocks/tick
-        const sp = Math.min(.6, d * .3 + .15);
-        this.vx = dx / d * sp; this.vy = dy / d * sp; this.vz = dz / d * sp;
-      }
-      if (d < 0.7) {
+    if (p && !p.dead && p.gameMode !== 'spectator' && this.pickupDelay === 0) {
+      const inX = Math.abs(this.x - p.x) < 1.3 + 0.125;
+      const inZ = Math.abs(this.z - p.z) < 1.3 + 0.125;
+      const inY = (this.y + 0.125) > (p.y - 0.5) && (this.y - 0.125) < (p.y + p.h + 0.5);
+      if (inX && inY && inZ) {
         const left = p.addItem(this.itemStack.id, this.itemStack.count, this.itemStack.dur, this.itemStack.ench);
         if (left === 0) { this.dead = true; SFX.playPop(); return; }
         else this.itemStack.count = left;

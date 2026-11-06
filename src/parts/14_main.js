@@ -72,7 +72,10 @@ function setupInput() {
             if (s.count <= 0) p.slots[p.held] = null;
             const dir = fwdFromYawPitch(p.yaw, p.pitch, [0, 0, 0]);
             const ent = dropItem(p.x + dir[0] * .5, p.y + 1.3, p.z + dir[2] * .5, ITEMS[drop.id].key, drop.count, drop.dur, drop.ench);
-            if (ent) { ent.vx = dir[0] * .3; ent.vy = dir[1] * .3 + .12; ent.vz = dir[2] * .3; ent.age = -12; }
+            // 1:1 LivingEntity.createItemStackToDrop: a stack thrown from the
+            // hand gets setPickUpDelay(40) — 2 s until anything can collect it,
+            // otherwise the magnet/pickup instantly re-takes the dropped item
+            if (ent) { ent.vx = dir[0] * .3; ent.vy = dir[1] * .3 + .12; ent.vz = dir[2] * .3; ent.pickupDelay = 40; }
             UI.refreshHotbar();
           }
           break;

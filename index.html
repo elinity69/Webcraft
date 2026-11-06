@@ -2100,7 +2100,14 @@ function resolveDrops(blockId, meta, toolDef, fortuneLvl) {
   if (d === undefined || d === 'self') return [[bl.key, 1]];
   if (typeof d === 'string') {
     if (d === 'wheat_crop') {
-      if (meta >= 7) return [['wheat_item', 1], ['wheat_seeds', 1 + fortuneLvl]];
+      if (meta >= 7) {
+        // REA loot_table/blocks/wheat.json 1:1: pool 1 alternatives -> age 7
+        // drops wheat; pool 2 drops seeds via apply_bonus
+        // binomial_with_bonus_count(extra 3, probability 0.5714286)
+        let seeds = 0;
+        for (let i = 0; i < 3 + fortuneLvl; i++) if (rand() < 0.5714286) seeds++;
+        return [['wheat_item', 1], ['wheat_seeds', seeds]];
+      }
       return [['wheat_seeds', 1]];
     }
     if (d === 'nether_wart_crop') return [['nether_wart', meta >= 3 ? randInt(2, 4) : 1]];
@@ -2112,7 +2119,12 @@ function resolveDrops(blockId, meta, toolDef, fortuneLvl) {
     if (k === 'sapling5') { if (chance(0.05 + fortuneLvl * 0.0125)) out.push([`${bl.key.replace('_leaves', '_sapling')}`, 1]); continue; }
     if (k === 'apple1') { if (chance(0.005 + fortuneLvl * 0.0025)) out.push(['apple', 1]); continue; }
     if (k === 'wheat_crop') {
-      if (meta >= 7) { out.push(['wheat_item', 1]); out.push(['wheat_seeds', randInt(0, 3) + fortuneLvl]); }
+      // REA loot_table/blocks/wheat.json: binomial_with_bonus_count(extra 3, p 0.5714286)
+      if (meta >= 7) {
+        let seeds = 0;
+        for (let i = 0; i < 3 + fortuneLvl; i++) if (rand() < 0.5714286) seeds++;
+        out.push(['wheat_item', 1]); out.push(['wheat_seeds', seeds]);
+      }
       else out.push(['wheat_seeds', 1]);
       continue;
     }
@@ -7181,6 +7193,11 @@ class Player {
       SFX.playBreak(bl.material);
       return;
     }
+    // capture the block state BEFORE clearing — setBlock(x,y,z,0) resets the
+    // meta, and crops (wheat, nether wart) resolve their loot from the age
+    // meta: reading it afterwards returned 0, so mature wheat dropped only
+    // seeds (the REA loot table keys the wheat item on age:"7")
+    const cropMeta = w.getMeta(bx, by, bz);
     w.setBlock(bx, by, bz, 0);
     G.stats.mined++;
     SFX.playBreak(bl.material);
@@ -7192,7 +7209,7 @@ class Player {
       const tool = item ? ITEMS[item.id].tool : null;
       const ench = item && item.ench || {};
       const fortune = ench.fortune || 0;
-      const drops = resolveDrops(id, w.getMeta(bx, by, bz), tool, fortune);
+      const drops = resolveDrops(id, cropMeta, tool, fortune);
       for (const [key, count] of drops) dropItem(bx + .5, by + .3, bz + .5, key, count);
       // container contents drop
       const tek = bx + ',' + by + ',' + bz;
@@ -9664,6 +9681,9 @@ class Entity {
     this.renderParts = true; // every entity renders (items via drawItem, mobs via drawBoxes)
     this.onGround = false;
     this.age = 0;
+    // 1:1 ItemEntity: 0 = collectable now (block drops), 40 = player-thrown
+    // drops (LivingEntity.createItemStackToDrop), 32767 = never
+    this.pickupDelay = 0;
     this.gravity = !!def.gravity;
     this.hostile = !!def.hostile;
     this.itemEntity = type === 'item';
@@ -9890,6 +9910,9 @@ class Entity {
     this.vy *= 0.98;
     this.vx *= 0.98;
     this.vz *= 0.98;
+    // 1:1 ItemEntity.tick: the pickup delay counts down before anything can
+    // collect the stack (32767 = never)
+    if (this.pickupDelay > 0 && this.pickupDelay !== 32767) this.pickupDelay--;
     const inW = G.world.getBlock(Math.floor(this.x), Math.floor(this.y + .3), Math.floor(this.z)) === B.water;
     if (inW) { this.vy = Math.min(this.vy + 0.04, 0.1); this.fallDistance = 0; }
     this.vx *= .9; this.vz *= .9;
@@ -9909,31 +9932,17 @@ class Entity {
       }
     }
     if (this.age > 6000) { this.dead = true; return; }
-    // aggressive magnet + pickup: a sprinting player must collect a drop the
-    // moment he passes over it — no trailing behind
+    // 1:1 pickup — Player.touch query box: the player's bounding box inflated
+    // by (1.0, 0.5, 1.0) (Player.java), intersecting the item's 0.25 box, and
+    // ItemEntity.playerTouch only collects when pickupDelay == 0. Vanilla has
+    // NO magnetic attraction — the old 3.5-radius magnet pulled a freshly
+    // dropped stack straight back into the player.
     const p = G.player;
-    if (p && !p.dead && this.age > 2) {
-      const dx = p.x - this.x, dy = (p.y + .8) - this.y, dz = p.z - this.z;
-      const dh = Math.hypot(dx, dz);
-      // MC-AABB-style pickup: whenever the player is standing OVER the drop
-      // (horizontal contact), it is collected instantly — a spherical check
-      // against the body center alone misses it because of the height offset
-      if (dh < 0.8 && Math.abs(dy) < 1.3) {
-        const left = p.addItem(this.itemStack.id, this.itemStack.count, this.itemStack.dur, this.itemStack.ench);
-        if (left === 0) { this.dead = true; SFX.playPop(); return; }
-        else this.itemStack.count = left;
-      }
-      const d = Math.hypot(dx, dy, dz) || .001;
-      if (d < 3.5) {
-        // strong pull that outruns the friction (0.9 drag per tick)
-        this.vx += dx / d * .22; this.vy += dy / d * .22; this.vz += dz / d * .22;
-      }
-      if (d < 1.1) {
-        // final snap: fly straight at the player at up to 0.6 blocks/tick
-        const sp = Math.min(.6, d * .3 + .15);
-        this.vx = dx / d * sp; this.vy = dy / d * sp; this.vz = dz / d * sp;
-      }
-      if (d < 0.7) {
+    if (p && !p.dead && p.gameMode !== 'spectator' && this.pickupDelay === 0) {
+      const inX = Math.abs(this.x - p.x) < 1.3 + 0.125;
+      const inZ = Math.abs(this.z - p.z) < 1.3 + 0.125;
+      const inY = (this.y + 0.125) > (p.y - 0.5) && (this.y - 0.125) < (p.y + p.h + 0.5);
+      if (inX && inY && inZ) {
         const left = p.addItem(this.itemStack.id, this.itemStack.count, this.itemStack.dur, this.itemStack.ench);
         if (left === 0) { this.dead = true; SFX.playPop(); return; }
         else this.itemStack.count = left;
@@ -11257,10 +11266,13 @@ function explode(x, y, z, power) {
     if (bl.key === 'obsidian' || bl.key === 'crying_obsidian') continue;
     // water dampens
     if (world.getBlock(bx, by + 1, bz) === B.water) continue;
+    // capture the state BEFORE clearing — crops resolve their loot from the
+    // age meta (mature wheat drops wheat + seeds in the REA loot table)
+    const expMeta = world.getMeta(bx, by, bz);
     world.setBlock(bx, by, bz, 0, 0, { noUpdate: true });
     if (bl.fluid) world.setBlock(bx, by, bz, 0, 0, { noUpdate: true });
     if (chance(.28) && bl.drops !== null) {
-      const drops = resolveDrops(id, 0, null, 0);
+      const drops = resolveDrops(id, expMeta, null, 0);
       for (const [key, n] of drops) if (chance(.3)) dropItem(bx + .5, by + .5, bz + .5, key, n);
     }
     // chain reaction
@@ -12601,7 +12613,10 @@ function setupInput() {
             if (s.count <= 0) p.slots[p.held] = null;
             const dir = fwdFromYawPitch(p.yaw, p.pitch, [0, 0, 0]);
             const ent = dropItem(p.x + dir[0] * .5, p.y + 1.3, p.z + dir[2] * .5, ITEMS[drop.id].key, drop.count, drop.dur, drop.ench);
-            if (ent) { ent.vx = dir[0] * .3; ent.vy = dir[1] * .3 + .12; ent.vz = dir[2] * .3; ent.age = -12; }
+            // 1:1 LivingEntity.createItemStackToDrop: a stack thrown from the
+            // hand gets setPickUpDelay(40) — 2 s until anything can collect it,
+            // otherwise the magnet/pickup instantly re-takes the dropped item
+            if (ent) { ent.vx = dir[0] * .3; ent.vy = dir[1] * .3 + .12; ent.vz = dir[2] * .3; ent.pickupDelay = 40; }
             UI.refreshHotbar();
           }
           break;

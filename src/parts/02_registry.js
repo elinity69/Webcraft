@@ -388,7 +388,14 @@ function resolveDrops(blockId, meta, toolDef, fortuneLvl) {
   if (d === undefined || d === 'self') return [[bl.key, 1]];
   if (typeof d === 'string') {
     if (d === 'wheat_crop') {
-      if (meta >= 7) return [['wheat_item', 1], ['wheat_seeds', 1 + fortuneLvl]];
+      if (meta >= 7) {
+        // REA loot_table/blocks/wheat.json 1:1: pool 1 alternatives -> age 7
+        // drops wheat; pool 2 drops seeds via apply_bonus
+        // binomial_with_bonus_count(extra 3, probability 0.5714286)
+        let seeds = 0;
+        for (let i = 0; i < 3 + fortuneLvl; i++) if (rand() < 0.5714286) seeds++;
+        return [['wheat_item', 1], ['wheat_seeds', seeds]];
+      }
       return [['wheat_seeds', 1]];
     }
     if (d === 'nether_wart_crop') return [['nether_wart', meta >= 3 ? randInt(2, 4) : 1]];
@@ -400,7 +407,12 @@ function resolveDrops(blockId, meta, toolDef, fortuneLvl) {
     if (k === 'sapling5') { if (chance(0.05 + fortuneLvl * 0.0125)) out.push([`${bl.key.replace('_leaves', '_sapling')}`, 1]); continue; }
     if (k === 'apple1') { if (chance(0.005 + fortuneLvl * 0.0025)) out.push(['apple', 1]); continue; }
     if (k === 'wheat_crop') {
-      if (meta >= 7) { out.push(['wheat_item', 1]); out.push(['wheat_seeds', randInt(0, 3) + fortuneLvl]); }
+      // REA loot_table/blocks/wheat.json: binomial_with_bonus_count(extra 3, p 0.5714286)
+      if (meta >= 7) {
+        let seeds = 0;
+        for (let i = 0; i < 3 + fortuneLvl; i++) if (rand() < 0.5714286) seeds++;
+        out.push(['wheat_item', 1]); out.push(['wheat_seeds', seeds]);
+      }
       else out.push(['wheat_seeds', 1]);
       continue;
     }
