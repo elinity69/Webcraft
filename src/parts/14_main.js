@@ -242,6 +242,32 @@ Player.prototype.tryInteractEntity = function () {
     SFX.playClick(true);
     return true;
   }
+  // feed animals — 1:1 Animal.mobInteract: isFood(item) is the species' food
+  // (d.breedItem), and the OLD gate `def.food &&` required an edible-item flag
+  // wheat_seeds/carrot don't have — that is why feeding silently never worked.
+  // REA order: super.mobInteract (the food/love path) runs BEFORE mounting, so
+  // a saddled pig is fed rather than ridden while holding its food.
+  // age == 0 && inLove <= 0 -> consume + setInLove(600); baby -> consume +
+  // ageUp(10% of the remaining growth); in love or cooldown -> nothing.
+  if (def && d.breedItem === ITEMS[item.id].key) {
+    if (e.breedAge === 0 && e.inLove <= 0) {
+      e.inLove = 600; // setInLove: 600 ticks = 30 s
+      spawnHeartParticles(e.x, e.y + e.h, e.z);
+      SFX.playDig('grass'); // playEatingSound
+      p.consumeHeld();
+      return true;
+    }
+    if (e.breedAge < 0) {
+      // canAgeUp path: getSpeedUpSecondsWhenFeeding = 10% of the remaining age
+      e.breedAge += Math.floor(-e.breedAge * 0.1);
+      if (e.breedAge > 0) e.breedAge = 0;
+      spawnHeartParticles(e.x, e.y + e.h, e.z);
+      SFX.playDig('grass');
+      p.consumeHeld();
+      return true;
+    }
+    return true; // already in love or on the breed cooldown — nothing consumed
+  }
   if ((d.ridable || (e.type === 'pig' && e.saddled)) && !p.riding) {
     p.riding = e;
     e.rider = p;
@@ -262,14 +288,6 @@ Player.prototype.tryInteractEntity = function () {
   if (def && def.bucket === 'empty' && e.type === 'cow') {
     p.replaceHeld({ id: I.milk_bucket, count: 1 });
     SFX.playSplash();
-    return true;
-  }
-  // breed
-  if (def && def.food && d.breedItem === ITEMS[item.id].key && e.babyAge >= 0 && e.inLove <= 0) {
-    e.inLove = 600;
-    spawnHeartParticles(e.x, e.y + e.h, e.z);
-    SFX.playDig('grass');
-    p.consumeHeld();
     return true;
   }
   return false;

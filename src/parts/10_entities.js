@@ -208,7 +208,7 @@ class Entity {
     this.walkAnim = 0; this.walkSpeed = 0;
     this.attackCD = 0;
     this.fuse = -1;
-    this.inLove = 0; this.babyAge = 0;
+    this.inLove = 0; this.breedAge = 0;
     this.soundCD = randInt(40, 200);
     this.ai = { wanderT: 0, wx: 0, wz: 0, target: null, panicT: 0 };
     Object.assign(this, opts);
@@ -289,6 +289,7 @@ class Entity {
     this.health -= amount;
     this.hurtTime = 10;
     SFX.playHit();
+    this.inLove = 0; // 1:1 Animal.actuallyHurt -> resetLove: pain cancels love
     if (attacker && (attacker.isPlayer || attacker === G.player)) {
       const dx = this.x - attacker.x, dz = this.z - attacker.z;
       const l = Math.hypot(dx, dz) || 1;
@@ -645,23 +646,48 @@ class Entity {
         if (this.burnTime % 20 === 0) this.damage(1);
       }
     }
-    // breeding hearts
+    // ---------- breeding 1:1 REA Animal.aiStep / AgeableMob / BreedGoal ----------
+    // breedAge semantics (AgeableMob.age): baby < 0 counts UP to 0 (adult at
+    // -24000 -> 20 min), adult 0, breed cooldown 6000 counts DOWN to 0.
+    // Love is voided while the age is not 0 (Animal.aiStep: getAge() != 0).
+    if (this.breedAge !== 0 && this.inLove > 0) this.inLove = 0;
+    if (this.breedAge < 0) this.breedAge++;
+    else if (this.breedAge > 0) this.breedAge--;
+    // in love: hearts every 10 love-ticks (Animal.aiStep: inLove % 10 == 0)
     if (this.inLove > 0) {
       this.inLove--;
-      if (this.age % 10 === 0) spawnHeartParticles(this.x, this.y + this.h, this.z);
-      // find partner
-      for (const o of G.entities) {
-        if (o !== this && !o.dead && o.type === this.type && o.inLove > 0 && Math.hypot(o.x - this.x, o.z - this.z) < 2.5) {
-          this.inLove = 0; o.inLove = 0;
-          const baby = spawnEntity(this.type, this.x, this.y, this.z);
-          baby.babyAge = -1200; // 60s baby
-          spawnHeartParticles(this.x, this.y + 1, this.z);
-          spawnXPOrbs(this.x, this.y + .5, this.z, randInt(1, 7));
-          break;
+      if (this.inLove % 10 === 0) spawnHeartParticles(this.x, this.y + this.h, this.z);
+    }
+    // BreedGoal: the partner must be the SAME type, in love, not panicking,
+    // within 8 blocks (TargetingConditions.forNonCombat().range(8.0)
+    // .ignoreLineOfSight()); the nearest one wins. The pairing walks to each
+    // other and breeds after 60 ticks once closer than 3 blocks.
+    let partner = this._breedPartner;
+    if (partner && (partner.dead || partner.inLove <= 0 || Math.hypot(partner.x - this.x, partner.z - this.z) > 8)) partner = null;
+    if (this.inLove > 0) {
+      if (!partner) {
+        let bestD = 1e9;
+        for (const o of G.entities) {
+          if (o === this || o.dead || o.type !== this.type || o.inLove <= 0 || (o.ai && o.ai.panicT > 0)) continue;
+          const dd = Math.hypot(o.x - this.x, o.z - this.z);
+          if (dd < 8 && dd < bestD) { partner = o; bestD = dd; }
         }
+        if (partner !== this._breedPartner) this.loveT = 0; // new pairing restarts the 60-tick courtship
+      }
+    } else partner = null;
+    this._breedPartner = partner;
+    if (partner) {
+      this.loveT = (this.loveT || 0) + 1;
+      if (this.loveT >= 60 && Math.hypot(partner.x - this.x, partner.z - this.z) < 3) {
+        // 1:1 Animal.spawnChildFromBreeding / finalizeSpawnChildFromBreeding
+        const baby = spawnEntity(this.type, this.x, this.y, this.z);
+        baby.breedAge = -24000; // setBaby: 24000 ticks (20 min) to grow up
+        this.breedAge = 6000; this.inLove = 0; this.loveT = 0;
+        partner.breedAge = 6000; partner.inLove = 0; partner._breedPartner = null; partner.loveT = 0;
+        for (let i = 0; i < 7; i++) spawnHeartParticles(this.x + (rand() - .5), this.y + this.h + rand() * .5, this.z + (rand() - .5)); // broadcast event 18: 7 hearts
+        spawnXPOrbs(this.x, this.y + .5, this.z, randInt(1, 7)); // getRandom().nextInt(7) + 1
       }
     }
-    if (this.babyAge < 0) this.babyAge++;
     // egg laying
     if (d.laysEggs && this.age % 6000 === 0 && chance(.5)) dropItem(this.x, this.y + .3, this.z, 'egg', 1);
 
@@ -805,10 +831,34 @@ class Entity {
         speed *= 1.8;
         moveX = this.ai.wx; moveZ = this.ai.wz;
       }
-      // follow player holding breeding food
+      // 1:1 BreedGoal.tick: a pairing walks toward its partner (speedModifier 1.0)
+      else if (this._breedPartner && !this._breedPartner.dead) {
+        const pdx = this._breedPartner.x - this.x, pdz = this._breedPartner.z - this.z;
+        const pl = Math.hypot(pdx, pdz) || 1;
+        if (pl > 1.2) { moveX = pdx / pl; moveZ = pdz / pl; }
+        this.yaw = Math.atan2(pdx, pdz); // look at the partner (LookControl)
+      }
+      // 1:1 FollowParentGoal: babies (age < 0) follow the nearest adult of the
+      // same type when it is 3-16 blocks away (scan box 8x4x8, speed 1.1)
+      else if (this.breedAge < 0 && p && !p.dead) {
+        let parent = null, parentD = 1e9;
+        for (const o of G.entities) {
+          if (o === this || o.dead || o.type !== this.type || o.breedAge < 0) continue;
+          const dd = Math.hypot(o.x - this.x, (o.y - this.y) * 2, o.z - this.z); // vertical weighted like the 8x4x8 scan box
+          if (dd < 8 && dd < parentD) { parent = o; parentD = dd; }
+        }
+        if (parent && parentD > 3 && parentD < 16) {
+          const pdx = parent.x - this.x, pdz = parent.z - this.z;
+          const pl = Math.hypot(pdx, pdz) || 1;
+          moveX = pdx / pl; moveZ = pdz / pl;
+          speed *= 1.1;
+        } else [moveX, moveZ] = this.wander();
+      }
+      // TemptGoal: lure with the breeding food in hand — TEMPT_RANGE 10.0
+      // (Animal.createAnimalAttributes), the animal stops 1 block short
       else if (p && !p.dead) {
         const held = p.getHeldItem();
-        if (held && ITEMS[held.id].key === d.breedItem && distP < 8) {
+        if (held && ITEMS[held.id].key === d.breedItem && distP < 10) {
           const dx = p.x - this.x, dz = p.z - this.z;
           const l = Math.hypot(dx, dz) || 1;
           if (distP > 1.8) { moveX = dx / l; moveZ = dz / l; }
@@ -957,7 +1007,7 @@ class Entity {
     const l = this.lightAt();
     const hurt = this.hurtTime > 0 ? 1 : 0;
     const deathRot = this.dead ? Math.min(1, this.deathTime / 15) * Math.PI / 2 : 0;
-    const scale = this.babyAge < 0 ? .55 : 1;
+    const scale = this.breedAge < 0 ? .55 : 1;
     // leg swing interpolated between the last two ticks (see tick(): walkAnimO)
     const wa = this.walkAnimO === undefined ? this.walkAnim : this.walkAnimO + (this.walkAnim - this.walkAnimO) * alpha;
     const ws = this.walkSpeedO === undefined ? this.walkSpeed : this.walkSpeedO + (this.walkSpeed - this.walkSpeedO) * alpha;
