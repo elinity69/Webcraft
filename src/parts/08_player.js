@@ -1327,6 +1327,10 @@ class Player {
     while (y < WORLD_H - 2 && this.world.getBlock(Math.floor(sx), y, Math.floor(sz)) === 0) y++;
     const groundId = this.world.getBlock(Math.floor(sx), y, Math.floor(sz));
     if (groundId > 0 && BLOCKS[groundId].solid) this.y = y + 1.01;
+    // MC parity: respawn is a clientbound position sync (ServerPlayer.respawn)
+    // — the camera SNAPS to the spawn point. Without snapping px/py/pz the
+    // render interpolation glides the camera from the death spot to spawn.
+    this.px = this.x; this.py = this.y; this.pz = this.z;
   }
 }
 

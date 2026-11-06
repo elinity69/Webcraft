@@ -272,8 +272,10 @@ class Net {
       }
       case 'welcome': {
         // a welcome addressed to ANOTHER player (3+ player rooms, dual
-        // transport echoes) must not rebuild our world — adopt only OUR welcome
-        if (obj.to !== undefined && obj.to !== this.myId) break;
+        // transport echoes) must not rebuild our world — adopt only OUR
+        // welcome. to === 'rtc' is the RTC datachannel convention (the host
+        // doesn't know the joiner's id when the channel opens) and MUST pass.
+        if (obj.to !== undefined && obj.to !== this.myId && obj.to !== 'rtc') break;
         this.hostId = obj.id;
         this.isHostOrSingle = false;
         this.joined = true;
@@ -356,15 +358,24 @@ class Net {
             ent.sx = ent.tx = obj.x; ent.sy = ent.ty = obj.y; ent.sz = ent.tz = obj.z;
             ent.snapT = performance.now();
           } else {
-            // remember the real snapshot interval: background tabs throttle to
-            // ~1 snapshot/s, and sliding the old 50 ms window over a 1 s gap
-            // made the avatar teleport — glide over the observed gap instead
-            ent.prevSnapGap = ent.snapT ? Math.min(1000, Math.max(50, performance.now() - ent.snapT)) : 50;
-            ent.sx = ent.tx !== undefined ? ent.tx : obj.x;
-            ent.sy = ent.ty !== undefined ? ent.ty : obj.y;
-            ent.sz = ent.tz !== undefined ? ent.tz : obj.z;
-            ent.tx = obj.x; ent.ty = obj.y; ent.tz = obj.z;
-            ent.snapT = performance.now();
+            // burst coalescing: a throttled background tab delivers ~20 queued
+            // snapshots at once when it wakes up — sliding each one over the
+            // 50 ms window would fast-forward the avatar through the path.
+            // Keep the slide's start point and only move the target: the
+            // avatar glides to the NEWEST position smoothly.
+            if (ent.snapT && performance.now() - ent.snapT < 25) {
+              ent.tx = obj.x; ent.ty = obj.y; ent.tz = obj.z;
+            } else {
+              // remember the real snapshot interval: background tabs throttle to
+              // ~1 snapshot/s, and sliding the old 50 ms window over a 1 s gap
+              // made the avatar teleport — glide over the observed gap instead
+              ent.prevSnapGap = ent.snapT ? Math.min(1000, Math.max(50, performance.now() - ent.snapT)) : 50;
+              ent.sx = ent.tx !== undefined ? ent.tx : obj.x;
+              ent.sy = ent.ty !== undefined ? ent.ty : obj.y;
+              ent.sz = ent.tz !== undefined ? ent.tz : obj.z;
+              ent.tx = obj.x; ent.ty = obj.y; ent.tz = obj.z;
+              ent.snapT = performance.now();
+            }
           }
           // yaw along the shortest arc between snapshots. +π: the humanoid
           // model's front is (sin(yaw), cos(yaw)) — the PLAYER's view direction

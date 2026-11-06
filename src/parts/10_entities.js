@@ -761,7 +761,9 @@ class Entity {
         this.vx = lerp(this.vx, moveX * speed, .05);
         this.vz = lerp(this.vz, moveZ * speed, .05);
         this.yaw = Math.atan2(this.vx, this.vz);
-        this.move(this.vx * DT, this.vy * DT, this.vz * DT);
+        // velocities are per-tick like every other mob (physics()) — the old
+        // ×DT scaling made the ghast crawl 20× slower than its speed attribute
+        this.move(this.vx, this.vy, this.vz);
         return;
       } else {
         moveX = dx / l; moveZ = dz / l;
