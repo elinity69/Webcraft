@@ -707,7 +707,7 @@ const SaveSystem = {
       dragonKilled: G._dragonDefeated || false, endInit: G._endInit || false,
       player: {
         x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, held: p.held,
-        health: p.health, hunger: p.hunger, saturation: p.saturation,
+        health: p.health, hunger: p.hunger, saturation: p.saturation, air: p.air,
         xp: p.xp, xpLevel: p.xpLevel, slots: p.slots, spawn: p.spawnPoint, gameMode: p.gameMode,
       },
       edits: dimEdits,
@@ -1047,6 +1047,7 @@ function startGame(savedPlayer, hostPayload) {
     p.yaw = savedPlayer.yaw || 0; p.pitch = savedPlayer.pitch || 0;
     p.held = savedPlayer.held || 0;
     p.health = savedPlayer.health ?? 20;
+    p.air = Math.min(300, Math.max(-200, savedPlayer.air ?? 300)); // MC saves the air supply too
     p.hunger = savedPlayer.hunger ?? 20;
     p.saturation = savedPlayer.saturation ?? 5;
     p.xp = savedPlayer.xp || 0; p.xpLevel = savedPlayer.xpLevel || 0;
@@ -1108,24 +1109,60 @@ function startGame(savedPlayer, hostPayload) {
         }
       }
     }
-    // validate saved player: corrupted saves (mid-air / dead / buried inside blocks) get resettled
+    // validate saved player: only genuinely INVALID states get resettled —
+    // dead/zero-HP saves or a player buried INSIDE solid blocks. Swimming
+    // (no floor within 4 blocks) and falling (mid-air) are legal physics
+    // states: teleporting a swimmer to the ocean floor drowned them on load
+    // (observed live). Resettle spot needs 2 fluid-free non-solid blocks
+    // above the ground — MC Player.findRespawnPositionAndUseSpawnBlock rule.
     {
       const p = G.player;
       const bx = Math.floor(p.x), bz = Math.floor(p.z);
       const solidAt = (y) => { const id = G.world.getBlock(bx, y, bz); return id > 0 && BLOCKS[id].solid; };
+      const fluidAt = (y) => { const id = G.world.getBlock(bx, y, bz); return id > 0 && !!BLOCKS[id].fluid; };
       const feetBlocked = solidAt(Math.floor(p.y)) || solidAt(Math.floor(p.y) + 1);
-      let supported = false;
-      for (let dy = 0; dy <= 4; dy++) {
-        if (solidAt(Math.floor(p.y) - dy)) { supported = true; break; }
-      }
-      if (!supported || feetBlocked || p.dead || p.health <= 0) {
-        let sy = WORLD_H - 2;
-        while (sy > 1) {
-          const id = G.world.getBlock(bx, sy, bz);
-          if (id > 0 && BLOCKS[id].solid) break;
-          sy--;
+      // a legal standing/swimming spot: not inside solids and the head not in fluid
+      const breathing = !fluidAt(Math.floor(p.y) + 1);
+      if (feetBlocked || !breathing || p.dead || p.health <= 0) {
+        // find a safe surface: first solid from the top whose two blocks above
+        // are non-solid and fluid-free (air); if this column is flooded, spiral
+        // outward up to 8 blocks like MC's spawn search
+        let found = null;
+        const tryColumn = (cx, cz) => {
+          let sy = WORLD_H - 2;
+          while (sy > 1) {
+            const gid = G.world.getBlock(cx, sy, cz);
+            if (gid > 0 && BLOCKS[gid].solid) break;
+            sy--;
+          }
+          if (sy <= 1) return null;
+          const a1 = G.world.getBlock(cx, sy + 1, cz), a2 = G.world.getBlock(cx, sy + 2, cz);
+          const clear = (id) => id <= 0 || (!BLOCKS[id].solid && !BLOCKS[id].fluid);
+          if (clear(a1) && clear(a2)) return [cx + .5, sy + 1.01, cz + .5];
+          return null;
+        };
+        found = tryColumn(bx, bz);
+        if (!found) {
+          outer:
+          for (let r = 1; r <= 8 && !found; r++) {
+            for (let dx = -r; dx <= r && !found; dx++) for (let dz = -r; dz <= r; dz++) {
+              if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+              found = tryColumn(bx + dx, bz + dz);
+              if (found) break outer;
+            }
+          }
         }
-        p.y = sy + 1.01;
+        if (found) { p.x = found[0]; p.y = found[1]; p.z = found[2]; }
+        else {
+          // last resort: top of this column even if wet — better than buried
+          let sy = WORLD_H - 2;
+          while (sy > 1) {
+            const id = G.world.getBlock(bx, sy, bz);
+            if (id > 0 && BLOCKS[id].solid) break;
+            sy--;
+          }
+          p.y = sy + 1.01;
+        }
         p.dead = false;
         p.health = p.maxHealth;
         p.hunger = Math.max(p.hunger, 6);
